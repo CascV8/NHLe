@@ -22,7 +22,7 @@ MODELS = {p.relative_to(ROOT).as_posix(): load(p) for p in MODEL_PATHS}
 
 class TestModels(unittest.TestCase):
     def test_found_models(self):
-        self.assertEqual(len(MODELS), 9)
+        self.assertEqual(len(MODELS), 14)
 
     def test_probabilities_valid_and_monotonic(self):
         for name, m in MODELS.items():

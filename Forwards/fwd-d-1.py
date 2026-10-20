@@ -1,46 +1,33 @@
 """
-NHLe Forward D-1 Draft Model
-==============================
-Predicts NHL outcomes using the season BEFORE the draft year (age ~17).
+NHLe Forward D-1 Model (age ~17)
+================================
+Predicts NHL outcomes from the season before the draft year.
 
 Outputs two probabilities on a single bar (Iacobelli-style):
-  - P(NHL player) : reaches 200 GP
-  - P(Star)       : top 15% peak GAR among NHL forwards (subset of NHL player)
+  - P(NHL player) : reaches 200 NHL games
+  - P(Star)       : peak GAR (mean of best 3 seasons) in the top 15% of NHL forwards
 
-D-1 probabilities are lower than draft year at equivalent pts/82 because:
-  - Players are ~17, adding a year of projection uncertainty
-  - More variance in development trajectories at younger ages
-  - A dominant 17-year-old is impressive but less confirmatory than at 18
+WJC-18 points are pooled into pts/82 (no team-share adjustment).
 
-Trained on draft classes 2008-2018 (2019+ excluded — insufficient career time).
-Star threshold: peak GAR >= ~14.7 (HR data through 2025).
-  Examples near threshold: RNH, Nazem Kadri, Mark Stone, DeBrincat, Robert Thomas.
-
-No tournament adjustment — D-1 players (~17) attend U17/U18 tournaments,
-not WJC-20. Those tournament NHLe factors are not well-established.
+Coefficients are fit by training/fit.py on the 2006-2018 NHL draft classes;
+training/REPORT.md has the sample size, star threshold and accuracy.
 
 Usage:
     python fwd-d-1.py                  # interactive
-    python fwd-d-1.py --pts82 <value>  # pre-calculated pts/82 directly
+    python fwd-d-1.py --pts82 <value>  # pre-calculated pts/82
 
-League names (no spaces, use dashes):
-    whl, ohl, qmjhl, ushl, ncaa, ahl, shl, liiga, khl
-    u20-sm-sarja, u20-nationell, czechia-u20, u21-elite, etc.
-    Type 'leagues' at any prompt to list all.
+League names have no spaces (use dashes). Type 'leagues' at any prompt to list all.
 """
 
 import math
 import sys
 
-# ── Model coefficients (D-1, age ~17) ────────────────────────────────────────
-# Trained on ~1,800 forward draft profiles, recalibrated for pre-draft year.
-# Lower outcome rates than draft year at equivalent pts/82.
-# log-odds = INTERCEPT + COEF * nhl_pts_per82
-NHLER_INTERCEPT = -3.198512
-NHLER_COEF      =  0.231086
+# ── Model coefficients ── fit by training/fit.py, see training/REPORT.md ─────
+NHLER_INTERCEPT = -1.835953
+NHLER_COEF      =  0.118663
 
-STAR_INTERCEPT  = -3.553653
-STAR_COEF       =  0.155722
+STAR_INTERCEPT  = -5.480933
+STAR_COEF       =  0.227476
 # ─────────────────────────────────────────────────────────────────────────────
 
 LEAGUE_FACTORS = {
@@ -148,7 +135,7 @@ def show_result(pts82, stints=None):
     print(f"  ██ NHL player (200 GP+): {pn:.1%}  (includes star %)")
     print(f"  ░░ Bust (<200 GP)      : {1-pn:.1%}")
     print()
-    print("  Star ≈ RNH, Kadri, Mark Stone, DeBrincat, Robert Thomas")
+    print("  Star ≈ Jordan Kyrou, Jesper Bratt, Jordan Eberle, Adrian Kempe, Timo Meier")
     print("  D-1 model — age ~17, lower confidence than draft year.")
     print("  " + "═" * 52)
     print()

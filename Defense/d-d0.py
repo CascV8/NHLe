@@ -1,25 +1,35 @@
 """
 NHLe Defenseman Draft Year Model (age ~18)
 ==========================================
-Calibrated for defensemen — lower pts/82 thresholds than forward models.
-A 0.5 PPG OHL d-man in draft year is elite; 0.3 PPG is a solid pick.
+Predicts NHL outcomes from the draft year season.
 
-WJC-18 and WJC-20 both included — team pts = defenseman pts only.
+Outputs two probabilities on a single bar (Iacobelli-style):
+  - P(NHL player) : reaches 200 NHL games
+  - P(Star)       : peak GAR (mean of best 3 seasons) in the top 15% of NHL defensemen
+
+WJC-20 and WJC-18 points are pooled into pts/82, plus a log-odds adjustment from
+the player's share of their team's defenseman points (neutral at 12.5%, 1 of 8 d-men).
+The adjustment's size is hand-set, not fit.
+
+Coefficients are fit by training/fit.py on the 2006-2018 NHL draft classes;
+training/REPORT.md has the sample size, star threshold and accuracy.
 
 Usage:
-    python d-d0.py
-    python d-d0.py --pts82 <value>
+    python d-d0.py                  # interactive
+    python d-d0.py --pts82 <value>  # pre-calculated pts/82
+
+League names have no spaces (use dashes). Type 'leagues' at any prompt to list all.
 """
 
 import math, sys
 
-NHLER_INTERCEPT = -1.802312   # calibrated: 50% NHLer at 7.3 NHLe pts/82
-NHLER_COEF      =  0.246892
-STAR_INTERCEPT  = -3.395801
-STAR_COEF       =  0.192715
+# ── Model coefficients ── fit by training/fit.py, see training/REPORT.md ─────
+NHLER_INTERCEPT = -2.370991
+NHLER_COEF      =  0.149551
+STAR_INTERCEPT  = -5.615534
+STAR_COEF       =  0.245404
 
-# WJC full weight for draft year
-WJC_ADJ_CENTER  = 0.077
+WJC_ADJ_CENTER  = 0.125  # neutral = 1 of 8 rostered d-men
 WJC_ADJ_SCALE   = 0.08
 WJC_ADJ_MAX_POS =  0.50
 WJC_ADJ_MAX_NEG = -0.35
@@ -141,7 +151,7 @@ def show_result(pts82, stints=None, wjc_adj=0.0):
     print(f"  ██ NHL player (200 GP+): {pn:.1%}  (includes star %)")
     print(f"  ░░ Bust (<200 GP)      : {1-pn:.1%}")
     print()
-    print("  Star ≈ Hedman, Makar, Q.Hughes, Heiskanen, Dahlin")
+    print("  Star ≈ Brandon Montour, Ryan Suter, Aaron Ekblad, Jeff Petry, Noah Dobson")
     print("  Defenseman Draft Year model — age ~18.")
     print("  " + "═" * 52)
     print()

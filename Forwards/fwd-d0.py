@@ -1,44 +1,35 @@
 """
-NHLe Forward Draft Model
-=========================
+NHLe Forward Draft Year Model (age ~18)
+=======================================
+Predicts NHL outcomes from the draft year season.
+
 Outputs two probabilities on a single bar (Iacobelli-style):
-  - P(NHL player) : reaches 200 GP
-  - P(Star)       : top 15% peak GAR among NHL forwards (subset of NHL player)
+  - P(NHL player) : reaches 200 NHL games
+  - P(Star)       : peak GAR (mean of best 3 seasons) in the top 15% of NHL forwards
 
-Trained on draft classes 2008-2018 (2019+ excluded — insufficient career time).
-Star threshold calibrated from Hockey-Reference GAR data (through 2025):
-  Peak GAR (avg of best 3 seasons) >= ~14.7 among 200GP+ forwards.
-  Examples near threshold: RNH, Nazem Kadri, Mark Stone, Alex DeBrincat, Robert Thomas.
+WJC-20 and WJC-18 points are pooled into pts/82, plus a log-odds adjustment from
+the player's share of their team's forward points (neutral at 7.7%, 1 of 13 forwards).
+The adjustment's size is hand-set, not fit.
 
-Playoff stats pooled directly with regular season (same NHLe factor, equal weight).
-
-WJC-20:
-  Points are pooled into pts/82 via the WJC-20 NHLe factor (0.3053).
-  Additionally, a log-odds adjustment is applied based on the player's share
-  of their team's forward points — capturing dominance independent of nation strength.
-  Neutral at ~7.7% share (1 of 13 forwards). Max boost ~+14% at 50% base. Max drag ~-10%.
-  WJC-18 is handled the same way (factor 0.2207); the two adjustments are summed.
+Coefficients are fit by training/fit.py on the 2006-2018 NHL draft classes;
+training/REPORT.md has the sample size, star threshold and accuracy.
 
 Usage:
     python fwd-d0.py                  # interactive
-    python fwd-d0.py --pts82 <value>  # skip input, use pre-calculated pts/82
+    python fwd-d0.py --pts82 <value>  # pre-calculated pts/82
 
-League names (no spaces, use dashes):
-    whl, ohl, qmjhl, ushl, ncaa, ahl, shl, liiga, khl
-    u20-sm-sarja, u20-nationell, czechia-u20, u21-elite, etc.
-    Type 'leagues' at any prompt to list all.
+League names have no spaces (use dashes). Type 'leagues' at any prompt to list all.
 """
 
 import math
 import sys
 
-# ── Model coefficients ────────────────────────────────────────────────────────
-# log-odds = INTERCEPT + COEF * nhl_pts_per82
-NHLER_INTERCEPT = -3.158896
-NHLER_COEF      =  0.238853
+# ── Model coefficients ── fit by training/fit.py, see training/REPORT.md ─────
+NHLER_INTERCEPT = -2.108845
+NHLER_COEF      =  0.091441
 
-STAR_INTERCEPT  = -4.432684
-STAR_COEF       =  0.160648
+STAR_INTERCEPT  = -5.927638
+STAR_COEF       =  0.171743
 
 # WJC team-share adjustment (log-odds, applied after pts/82 model)
 # Tanh curve, capped at +0.60 / -0.40.
@@ -176,7 +167,7 @@ def show_result(pts82, stints=None, wjc_meta=None):
     print(f"  ██ NHL player (200 GP+): {pn:.1%}  (includes star %)")
     print(f"  ░░ Bust (<200 GP)      : {1 - pn:.1%}")
     print()
-    print("  Star ≈ RNH, Kadri, Mark Stone, DeBrincat, Robert Thomas")
+    print("  Star ≈ Jordan Kyrou, Jesper Bratt, Jordan Eberle, Adrian Kempe, Timo Meier")
     print("  " + "═" * 52)
     print()
 

@@ -1,40 +1,36 @@
 """
-NHLe Forward D+5 Model
-=======================
-Predicts NHL outcomes using 5 seasons after the draft year (age ~23).
+NHLe Forward D+5 Model (age ~23)
+================================
+Predicts NHL outcomes from 5 seasons after the draft year.
 
 Outputs two probabilities on a single bar (Iacobelli-style):
-  - P(NHL player) : reaches 200 GP
-  - P(Star)       : peak GAR (avg best 3 seasons) >= 14.7, top 15% of forwards
+  - P(NHL player) : reaches 200 NHL games
+  - P(Star)       : peak GAR (mean of best 3 seasons) in the top 15% of NHL forwards
 
-If the player has ALREADY reached 200 GP or the GAR threshold, outputs 100%.
+If the player has ALREADY reached 200 GP or the star threshold, that
+outcome is reported as 100%.
 
-No WJC — D+5 players are 23, not eligible.
+No WJC — players are 23, no longer eligible.
 
-By D+5 the signal is extremely clear:
-  - NHL production → confirmed NHLer, star depends entirely on rate
-  - AHL with modest production → almost certain bust
-  - Strong European pro → meaningful but uncertain NHLer probability
-  - Still in junior/ECHL → certain bust
-
-Trained directly on real D+5 data from 2008-2012 draft classes.
-Star threshold: peak GAR >= ~14.7 (HR data through 2025).
+Coefficients are fit by training/fit.py on the 2006-2018 NHL draft classes;
+training/REPORT.md has the sample size, star threshold and accuracy.
 
 Usage:
     python fwd-d5.py                  # interactive
     python fwd-d5.py --pts82 <value>  # pre-calculated pts/82
+
+League names have no spaces (use dashes). Type 'leagues' at any prompt to list all.
 """
 
 import math
 import sys
 
-# ── Model coefficients (D+5, age ~23) ────────────────────────────────────────
-# Trained directly on real D+5 data from 2008-2012 draft classes.
-NHLER_INTERCEPT = -3.472162
-NHLER_COEF      =  0.226039
+# ── Model coefficients ── fit by training/fit.py, see training/REPORT.md ─────
+NHLER_INTERCEPT = -2.645340
+NHLER_COEF      =  0.091044
 
-STAR_INTERCEPT  = -7.221153
-STAR_COEF       =  0.205414
+STAR_INTERCEPT  = -7.322190
+STAR_COEF       =  0.111121
 # ─────────────────────────────────────────────────────────────────────────────
 
 LEAGUE_FACTORS = {
@@ -145,7 +141,7 @@ def show_result(pts82, stints=None, known_nhler=False, known_star=False):
     print(f"  ██ NHL player (200 GP+): {pn:.1%}  (includes star %)")
     print(f"  ░░ Bust (<200 GP)      : {1-pn:.1%}")
     print()
-    print("  Star ≈ RNH, Kadri, Mark Stone, DeBrincat, Robert Thomas")
+    print("  Star ≈ Jordan Kyrou, Jesper Bratt, Jordan Eberle, Adrian Kempe, Timo Meier")
     print("  D+5 model — age ~23. No WJC (not eligible).")
     print("  " + "═" * 52)
     print()

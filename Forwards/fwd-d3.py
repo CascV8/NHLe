@@ -1,35 +1,36 @@
 """
-NHLe Forward D+3 Model
-=======================
-Predicts NHL outcomes using 3 seasons after the draft year (age ~21).
+NHLe Forward D+3 Model (age ~21)
+================================
+Predicts NHL outcomes from 3 seasons after the draft year.
 
 Outputs two probabilities on a single bar (Iacobelli-style):
-  - P(NHL player) : reaches 200 GP
-  - P(Star)       : peak GAR (avg best 3 seasons) >= 14.7, top 15% of forwards
+  - P(NHL player) : reaches 200 NHL games
+  - P(Star)       : peak GAR (mean of best 3 seasons) in the top 15% of NHL forwards
 
-If the player has ALREADY reached 200 GP or the GAR threshold, the model
-outputs 100% for that outcome directly.
+If the player has ALREADY reached 200 GP or the star threshold, that
+outcome is reported as 100%.
 
-No WJC adjustment — D+3 players are 21, no longer WJC eligible.
+No WJC — players are 21, no longer eligible.
 
-Trained on draft classes 2010-2014 (5 seasons of outcomes by 2019-2022).
-Star threshold: peak GAR >= ~14.7 (HR data through 2025).
-  Examples: RNH, Kadri, Mark Stone, DeBrincat, Robert Thomas.
+Coefficients are fit by training/fit.py on the 2006-2018 NHL draft classes;
+training/REPORT.md has the sample size, star threshold and accuracy.
 
 Usage:
     python fwd-d3.py                  # interactive
     python fwd-d3.py --pts82 <value>  # pre-calculated pts/82
+
+League names have no spaces (use dashes). Type 'leagues' at any prompt to list all.
 """
 
 import math
 import sys
 
-# ── Model coefficients (D+3, age ~21) ────────────────────────────────────────
-NHLER_INTERCEPT = -2.731481
-NHLER_COEF      =  0.213728
+# ── Model coefficients ── fit by training/fit.py, see training/REPORT.md ─────
+NHLER_INTERCEPT = -2.780408
+NHLER_COEF      =  0.101586
 
-STAR_INTERCEPT  = -3.757927
-STAR_COEF       =  0.079313
+STAR_INTERCEPT  = -6.276072
+STAR_COEF       =  0.105818
 # ─────────────────────────────────────────────────────────────────────────────
 
 LEAGUE_FACTORS = {
@@ -140,7 +141,7 @@ def show_result(pts82, stints=None, known_nhler=False, known_star=False):
     print(f"  ██ NHL player (200 GP+): {pn:.1%}  (includes star %)")
     print(f"  ░░ Bust (<200 GP)      : {1-pn:.1%}")
     print()
-    print("  Star ≈ RNH, Kadri, Mark Stone, DeBrincat, Robert Thomas")
+    print("  Star ≈ Jordan Kyrou, Jesper Bratt, Jordan Eberle, Adrian Kempe, Timo Meier")
     print("  D+3 model — age ~21. No WJC adjustment (not eligible).")
     print("  " + "═" * 52)
     print()

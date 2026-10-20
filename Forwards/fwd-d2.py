@@ -1,35 +1,38 @@
 """
-NHLe Forward D+2 Model
-=======================
-Predicts NHL outcomes using 2 seasons after the draft year (age ~20).
+NHLe Forward D+2 Model (age ~20)
+================================
+Predicts NHL outcomes from 2 seasons after the draft year.
 
 Outputs two probabilities on a single bar (Iacobelli-style):
-  - P(NHL player) : reaches 200 GP
-  - P(Star)       : peak GAR (avg best 3 seasons) >= 14.7, top 15% of forwards
+  - P(NHL player) : reaches 200 NHL games
+  - P(Star)       : peak GAR (mean of best 3 seasons) in the top 15% of NHL forwards
 
-If the player has ALREADY reached 200 GP or the GAR threshold, the model
-outputs 100% for that outcome directly — no need to predict what we know.
+If the player has ALREADY reached 200 GP or the star threshold, that
+outcome is reported as 100%.
 
-Trained on draft classes 2012-2017 (5 seasons of outcomes by 2022-2025).
-Star threshold: peak GAR >= ~14.7 (HR data through 2025).
+WJC-20 (final year of eligibility) points are pooled into pts/82, plus a log-odds adjustment from
+the player's share of their team's forward points (neutral at 7.7%, 1 of 13 forwards).
+The adjustment's size is hand-set, not fit.
 
-WJC-20 included — D+2 players are age 20, final year of eligibility.
-Same team-share log-odds adjustment as draft year and D+1 models.
+Coefficients are fit by training/fit.py on the 2006-2018 NHL draft classes;
+training/REPORT.md has the sample size, star threshold and accuracy.
 
 Usage:
     python fwd-d2.py                  # interactive
     python fwd-d2.py --pts82 <value>  # pre-calculated pts/82
+
+League names have no spaces (use dashes). Type 'leagues' at any prompt to list all.
 """
 
 import math
 import sys
 
-# ── Model coefficients (D+2, age ~20) ────────────────────────────────────────
-NHLER_INTERCEPT = -2.637906
-NHLER_COEF      =  0.135258
+# ── Model coefficients ── fit by training/fit.py, see training/REPORT.md ─────
+NHLER_INTERCEPT = -2.789350
+NHLER_COEF      =  0.105239
 
-STAR_INTERCEPT  = -3.220768
-STAR_COEF       =  0.078699
+STAR_INTERCEPT  = -6.414521
+STAR_COEF       =  0.126908
 
 WJC_ADJ_CENTER  = 0.077
 WJC_ADJ_SCALE   = 0.08
@@ -166,7 +169,7 @@ def show_result(pts82, stints=None, wjc_meta=None,
     print(f"  ██ NHL player (200 GP+): {pn:.1%}  (includes star %)")
     print(f"  ░░ Bust (<200 GP)      : {1-pn:.1%}")
     print()
-    print("  Star ≈ RNH, Kadri, Mark Stone, DeBrincat, Robert Thomas")
+    print("  Star ≈ Jordan Kyrou, Jesper Bratt, Jordan Eberle, Adrian Kempe, Timo Meier")
     print("  D+2 model — age ~20, most confident junior-era model.")
     print("  " + "═" * 52)
     print()

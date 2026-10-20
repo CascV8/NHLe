@@ -9,11 +9,16 @@ Skaters = forwards + defensemen (goalies excluded). Players traded mid-season
 have their games and GAR merged into a single player-season row before ranking.
 """
 
+from pathlib import Path
+
 import pandas as pd
 import numpy as np
 
 # ── Load data ─────────────────────────────────────────────────────────────────
-DATA_PATH = r"C:\Users\Admin\source\repos\NHLe\pareto\NHL-GAR-data-v2.5-1956-2022.csv"
+# Paths are relative to this file so the script runs from any directory
+HERE        = Path(__file__).resolve().parent
+DATA_PATH   = HERE / "NHL-GAR-data-v2.5-1956-2022.csv"
+OUTPUT_PATH = HERE / "pareto_results_by_season.csv"
 df = pd.read_csv(DATA_PATH, encoding='latin-1')
 
 # ── Parameters ────────────────────────────────────────────────────────────────
@@ -124,7 +129,7 @@ for season in sorted(skaters[COL_SEASON].dropna().unique()):
 results_df = pd.DataFrame(results)
 print(results_df.to_string(index=False))
 
-results_df.to_csv('pareto_results_by_season.csv', index=False)
+results_df.to_csv(OUTPUT_PATH, index=False)
 
 # ── Print player-by-player detail around the optimal point for one example season ──
 WINDOW_SEASON = 2021   # change to inspect a different season

@@ -7,8 +7,8 @@ A 0.5 PPG OHL d-man in draft year is elite; 0.3 PPG is a solid pick.
 WJC-18 and WJC-20 both included — team pts = defenseman pts only.
 
 Usage:
-    python nhle_model_dy_d.py
-    python nhle_model_dy_d.py --pts82 <value>
+    python d-d0.py
+    python d-d0.py --pts82 <value>
 """
 
 import math, sys
@@ -64,9 +64,20 @@ def parse_league(raw):
     if key in LEAGUE_FACTORS:
         return key, LEAGUE_FACTORS[key]
     try:
-        return key, float(key)
+        factor = float(key)
     except ValueError:
-        raise ValueError(f"Unknown league '{raw}'. Type 'leagues' to list.")
+        raise ValueError(f"Unknown league '{raw}'. Type 'leagues' to list.") from None
+    if not (0 < factor <= 1):
+        raise ValueError(f"Custom NHLe factor must be between 0 and 1, got '{raw}'.")
+    return key, factor
+
+
+def parse_num(raw):
+    """float() that rejects nan, inf and negative values."""
+    val = float(raw)
+    if not math.isfinite(val) or val < 0:
+        raise ValueError(f"expected a non-negative number, got '{raw}'")
+    return val
 
 
 def wjc_log_odds_adj(player_pts, team_pts):
@@ -167,8 +178,8 @@ def collect_stints(label, kind, optional=False):
         except ValueError as e:
             print(f"    ! {e}"); continue
         try:
-            pts = float(ask("Points"))
-            gp  = float(ask("Games played"))
+            pts = parse_num(ask("Points"))
+            gp  = parse_num(ask("Games played"))
         except ValueError:
             print("    ! Invalid number."); continue
         if gp <= 0:
@@ -189,12 +200,13 @@ def collect_wjc(label, league_key):
     if raw.lower() in ("skip", ""):
         return [], 0.0
     try:
-        pp = float(raw)
-        gp = float(ask("Games played"))
-        tp = float(ask("Team d-man points (all games)"))
+        pp = parse_num(raw)
+        gp = parse_num(ask("Games played"))
+        tp = parse_num(ask("Team d-man points (all games)"))
     except ValueError:
         return [], 0.0
-    if gp <= 0 or tp <= 0:
+    if gp <= 0 or tp <= 0 or pp > tp:
+        print("    ! Need GP > 0 and team pts >= player pts, skipping.")
         return [], 0.0
     fac = LEAGUE_FACTORS[league_key]
     adj = wjc_log_odds_adj(pp, tp)
@@ -207,9 +219,16 @@ def collect_wjc(label, league_key):
 
 
 def main():
+    # Bars and box-drawing characters crash cp1252 when output is redirected
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     args = sys.argv[1:]
     if len(args) == 2 and args[0] == "--pts82":
-        show_result(float(args[1]))
+        try:
+            pts82 = parse_num(args[1])
+        except ValueError as e:
+            sys.exit(f"  ! --pts82: {e}")
+        show_result(pts82)
         return
 
     print("\n  NHLe Defenseman Draft Year Model  (age ~18)")
@@ -232,4 +251,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except (KeyboardInterrupt, EOFError):
+        print("\n  Cancelled.")
+        sys.exit(130)

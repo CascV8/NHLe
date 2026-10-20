@@ -1,0 +1,6 @@
+# The models in Forwards/ and Defense/ use only the standard library.
+# These are for graphic/ and pareto/.
+matplotlib>=3.8
+numpy>=1.26
+pandas>=2.1
+pillow>=10.0

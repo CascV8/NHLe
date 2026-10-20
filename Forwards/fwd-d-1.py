@@ -20,8 +20,8 @@ No tournament adjustment — D-1 players (~17) attend U17/U18 tournaments,
 not WJC-20. Those tournament NHLe factors are not well-established.
 
 Usage:
-    python nhle_model_d1.py                  # interactive
-    python nhle_model_d1.py --pts82 <value>  # pre-calculated pts/82 directly
+    python fwd-d-1.py                  # interactive
+    python fwd-d-1.py --pts82 <value>  # pre-calculated pts/82 directly
 
 League names (no spaces, use dashes):
     whl, ohl, qmjhl, ushl, ncaa, ahl, shl, liiga, khl
@@ -73,7 +73,7 @@ LEAGUE_FACTORS = {
     "czechia-u20":  0.1037596731,
     "bchl":         0.09306532439,
     "slovakia2":    0.0915762792,
-    "u21-elit":    0.04983498016,
+    "u21-elite":    0.04983498016,
     "dnl":          0.02992688863,
 }
 
@@ -83,9 +83,20 @@ def parse_league(raw):
     if key in LEAGUE_FACTORS:
         return key, LEAGUE_FACTORS[key]
     try:
-        return key, float(key)
+        factor = float(key)
     except ValueError:
-        raise ValueError(f"Unknown league '{raw}'. Type 'leagues' to list.")
+        raise ValueError(f"Unknown league '{raw}'. Type 'leagues' to list.") from None
+    if not (0 < factor <= 1):
+        raise ValueError(f"Custom NHLe factor must be between 0 and 1, got '{raw}'.")
+    return key, factor
+
+
+def parse_num(raw):
+    """float() that rejects nan, inf and negative values."""
+    val = float(raw)
+    if not math.isfinite(val) or val < 0:
+        raise ValueError(f"expected a non-negative number, got '{raw}'")
+    return val
 
 
 def p_nhler(pts82):
@@ -176,8 +187,8 @@ def collect_stints(label, kind, optional=False):
         except ValueError as e:
             print(f"    ! {e}"); continue
         try:
-            pts = float(ask("Points"))
-            gp  = float(ask("Games played"))
+            pts = parse_num(ask("Points"))
+            gp  = parse_num(ask("Games played"))
         except ValueError:
             print("    ! Invalid number."); continue
         if gp <= 0:
@@ -201,8 +212,8 @@ def collect_wjc18():
     if raw.lower() in ("skip", ""):
         return []
     try:
-        pts = float(raw)
-        gp  = float(ask("Games played"))
+        pts = parse_num(raw)
+        gp  = parse_num(ask("Games played"))
     except ValueError:
         print("    ! Invalid number, skipping WJC-18.")
         return []
@@ -215,10 +226,17 @@ def collect_wjc18():
 
 
 def main():
+    # Bars and box-drawing characters crash cp1252 when output is redirected
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     args = sys.argv[1:]
 
     if len(args) == 2 and args[0] == "--pts82":
-        show_result(float(args[1]))
+        try:
+            pts82 = parse_num(args[1])
+        except ValueError as e:
+            sys.exit(f"  ! --pts82: {e}")
+        show_result(pts82)
         return
 
     print("\n  NHLe Forward D-1 Draft Model  (pre-draft year, age ~17)")
@@ -238,4 +256,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except (KeyboardInterrupt, EOFError):
+        print("\n  Cancelled.")
+        sys.exit(130)

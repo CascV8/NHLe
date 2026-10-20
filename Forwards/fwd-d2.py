@@ -17,8 +17,8 @@ WJC-20 included — D+2 players are age 20, final year of eligibility.
 Same team-share log-odds adjustment as draft year and D+1 models.
 
 Usage:
-    python nhle_model_dplus2.py                  # interactive
-    python nhle_model_dplus2.py --pts82 <value>  # pre-calculated pts/82
+    python fwd-d2.py                  # interactive
+    python fwd-d2.py --pts82 <value>  # pre-calculated pts/82
 """
 
 import math
@@ -77,9 +77,20 @@ def parse_league(raw):
     if key in LEAGUE_FACTORS:
         return key, LEAGUE_FACTORS[key]
     try:
-        return key, float(key)
+        factor = float(key)
     except ValueError:
-        raise ValueError(f"Unknown league '{raw}'. Type 'leagues' to list.")
+        raise ValueError(f"Unknown league '{raw}'. Type 'leagues' to list.") from None
+    if not (0 < factor <= 1):
+        raise ValueError(f"Custom NHLe factor must be between 0 and 1, got '{raw}'.")
+    return key, factor
+
+
+def parse_num(raw):
+    """float() that rejects nan, inf and negative values."""
+    val = float(raw)
+    if not math.isfinite(val) or val < 0:
+        raise ValueError(f"expected a non-negative number, got '{raw}'")
+    return val
 
 
 def wjc_log_odds_adj(player_pts, team_pts):
@@ -121,10 +132,7 @@ def show_result(pts82, stints=None, wjc_meta=None,
 
     # Known outcomes override model
     pn = 1.0 if known_nhler or known_star else p_nhler(pts82, wjc_adj)
-    ps = 1.0 if known_star else (p_star(pts82, wjc_adj) if pn < 1.0 else
-                                  p_star(pts82, wjc_adj))
-    if known_nhler and not known_star:
-        ps = p_star(pts82, wjc_adj)
+    ps = 1.0 if known_star else p_star(pts82, wjc_adj)
 
     print()
     print("  " + "═" * 52)
@@ -197,8 +205,8 @@ def collect_stints(label, kind, optional=False):
         except ValueError as e:
             print(f"    ! {e}"); continue
         try:
-            pts = float(ask("Points"))
-            gp  = float(ask("Games played"))
+            pts = parse_num(ask("Points"))
+            gp  = parse_num(ask("Games played"))
         except ValueError:
             print("    ! Invalid number."); continue
         if gp <= 0:
@@ -221,13 +229,14 @@ def collect_one_tournament(label, league_key):
     if raw.lower() in ("skip", ""):
         return [], None
     try:
-        player_pts = float(raw)
-        gp         = float(ask("Games played"))
-        team_pts   = float(ask("Team points by forwards only (all games)"))
+        player_pts = parse_num(raw)
+        gp         = parse_num(ask("Games played"))
+        team_pts   = parse_num(ask("Team points by forwards only (all games)"))
     except ValueError:
         print("    ! Invalid number, skipping.")
         return [], None
-    if gp <= 0 or team_pts <= 0:
+    if gp <= 0 or team_pts <= 0 or player_pts > team_pts:
+        print(f"    ! Need GP > 0 and team pts >= player pts, skipping {label}.")
         return [], None
     factor    = LEAGUE_FACTORS[league_key]
     share     = player_pts / team_pts
@@ -253,23 +262,24 @@ def ask_known_outcomes():
     print(f"  {'─' * 40}")
     nhler = ask("Has player already reached 200 NHL GP?", default="n").lower()
     known_nhler = nhler in ("y", "yes")
-    known_star  = False
-    if not known_nhler:
-        star = ask("Has player already hit star-level GAR (top 15%)?",
-                   default="n").lower()
-        known_star = star in ("y", "yes")
-    else:
-        star = ask("Has player already hit star-level GAR (top 15%)?",
-                   default="n").lower()
-        known_star = star in ("y", "yes")
+    star  = ask("Has player already hit star-level GAR (top 15%)?",
+                default="n").lower()
+    known_star  = star in ("y", "yes")
     return known_nhler, known_star
 
 
 def main():
+    # Bars and box-drawing characters crash cp1252 when output is redirected
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     args = sys.argv[1:]
 
     if len(args) == 2 and args[0] == "--pts82":
-        show_result(float(args[1]))
+        try:
+            pts82 = parse_num(args[1])
+        except ValueError as e:
+            sys.exit(f"  ! --pts82: {e}")
+        show_result(pts82)
         return
 
     print("\n  NHLe Forward D+2 Model  (2 seasons after draft, age ~20)")
@@ -292,4 +302,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except (KeyboardInterrupt, EOFError):
+        print("\n  Cancelled.")
+        sys.exit(130)

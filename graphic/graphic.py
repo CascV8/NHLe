@@ -1,8 +1,8 @@
 """
 NHLE Card Generator
 ═══════════════════
-Run:   python nhle_graphic.py
-Output: whatever you set OUTPUT_FILE to below
+Run:   python graphic.py
+Output: output/<OUTPUT_FILE> next to this script
 
 Drop league logo PNGs into logos/leagues/ (e.g. WHL.png, NHL.png).
 For undrafted players set draft_year, draft_pick, draft_team all to None.
@@ -30,26 +30,24 @@ GENERATION_YEAR = 2024
 #              - this is the dot/line position in the bottom line graph
 #              - set to None if the season hasn't happened yet (shows greyed bar)
 #
-#   nhler → NHLer outcome threshold (%)
-#              - top of the yellow (star) segment in the top bar chart
-#              - the lower of the two thresholds
-#
-#   star  → star outcome threshold (%)
+#   nhler → P(NHL player) in %, star % included (the model's "NHL player" line)
 #              - top of the green (nhler) segment in the top bar chart
-#              - the higher of the two thresholds
+#
+#   star  → P(star) in % (the model's "Star" line)
+#              - top of the gold (star) segment in the top bar chart
 #              - grey (bust) fills the rest up to 100%
 #
-# Example: nhler=40, star=65 means:
-#   40% chance of becoming a bust, 25% of being an NHLer, 35% of being a star
+# Example: nhler=65, star=40 means:
+#   40% chance of being a star, 25% of being a non-star NHLer, 35% of a bust
 
 NHLE_VALUES = {
-    "D-1":  {"nhle": 40,   "nhler": 30,  "star": 55},
-    "DY":   {"nhle": 72,   "nhler": 45,  "star": 75},
-    "D+1":  {"nhle": 55,   "nhler": 38,  "star": 65},
-    "D+2":  {"nhle": 60,   "nhler": 42,  "star": 68},
-    "D+3":  {"nhle": 58,   "nhler": 40,  "star": 66},
-    "D+4":  {"nhle": None, "nhler": 20,  "star": 35},  # ← None = not yet played
-    "D+5":  {"nhle": None, "nhler": 48,  "star": 72},  # ← None = not yet played
+    "D-1":  {"nhle": 40,   "nhler": 55,  "star": 30},
+    "DY":   {"nhle": 72,   "nhler": 75,  "star": 45},
+    "D+1":  {"nhle": 55,   "nhler": 65,  "star": 38},
+    "D+2":  {"nhle": 60,   "nhler": 68,  "star": 42},
+    "D+3":  {"nhle": 58,   "nhler": 66,  "star": 40},
+    "D+4":  {"nhle": None, "nhler": 35,  "star": 20},  # ← None = not yet played
+    "D+5":  {"nhle": None, "nhler": 72,  "star": 48},  # ← None = not yet played
 }
 
 # Which league the player was in (or is projected to be in) each season
@@ -69,6 +67,7 @@ SEASONS = {
 # ══════════════════════════════════════════════════════════════════════════════
 
 import os
+import sys
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -80,10 +79,11 @@ from PIL import Image
 
 _HERE      = os.path.dirname(os.path.abspath(__file__))
 LEAGUE_DIR = os.path.join(_HERE, "logos", "leagues")
+OUTPUT_DIR = os.path.join(_HERE, "output")
 
 BG          = "#FFFFFF"
 NHLER_GREEN = "#00D020"
-STAR_BLUE   = "#FFC400"
+STAR_GOLD   = "#FFC400"
 BAR_BLUE    = "#5BB8F5"
 BUST_GREY   = "#D9D9D9"
 TEXT_DARK   = "#111111"
@@ -218,7 +218,7 @@ def generate_nhle_graphic(
     YEAR_LEFT = 1.0 - M - year_w
 
     # Legend
-    legend_items = [("star", STAR_BLUE), ("nhler", NHLER_GREEN), ("bust", BUST_GREY)]
+    legend_items = [("star", STAR_GOLD), ("nhler", NHLER_GREEN), ("bust", BUST_GREY)]
     sw      = SQ_W * 0.40
     sh      = SQ_H / 5
     lbl_w   = 0.055
@@ -317,7 +317,7 @@ def generate_nhle_graphic(
     # Draw each season's bar — faded/desaturated for unplayed seasons
     for i in range(n):
         alpha = 1.0 if has_nhle[i] else 0.30   # dim future seasons
-        ax.bar(xs[i], star_h[i],  width=bar_w, bottom=0,     color=STAR_BLUE,   edgecolor="none", alpha=alpha, zorder=3)
+        ax.bar(xs[i], star_h[i],  width=bar_w, bottom=0,     color=STAR_GOLD,   edgecolor="none", alpha=alpha, zorder=3)
         ax.bar(xs[i], nhler_h[i], width=bar_w, bottom=lo[i], color=NHLER_GREEN, edgecolor="none", alpha=alpha, zorder=3)
         ax.bar(xs[i], bust_h[i],  width=bar_w, bottom=hi[i], color=BUST_GREY,   edgecolor="none", alpha=alpha, zorder=3)
 
@@ -400,6 +400,10 @@ def generate_nhle_graphic(
 
 
 if __name__ == "__main__":
+    # The ✅ in the save message crashes cp1252 when output is redirected
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
     generate_nhle_graphic(
         player_name     = PLAYER_NAME,
         country         = COUNTRY,
@@ -410,5 +414,5 @@ if __name__ == "__main__":
         generation_year = GENERATION_YEAR,
         nhle_values     = NHLE_VALUES,
         seasons         = SEASONS,
-        output_path     = OUTPUT_FILE,
+        output_path     = os.path.join(OUTPUT_DIR, OUTPUT_FILE),
     )

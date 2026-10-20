@@ -17,8 +17,8 @@ Star threshold: peak GAR >= ~14.7 (HR data through 2025).
   Examples: RNH, Kadri, Mark Stone, DeBrincat, Robert Thomas.
 
 Usage:
-    python nhle_model_dplus3.py                  # interactive
-    python nhle_model_dplus3.py --pts82 <value>  # pre-calculated pts/82
+    python fwd-d3.py                  # interactive
+    python fwd-d3.py --pts82 <value>  # pre-calculated pts/82
 """
 
 import math
@@ -70,9 +70,20 @@ def parse_league(raw):
     if key in LEAGUE_FACTORS:
         return key, LEAGUE_FACTORS[key]
     try:
-        return key, float(key)
+        factor = float(key)
     except ValueError:
-        raise ValueError(f"Unknown league '{raw}'. Type 'leagues' to list.")
+        raise ValueError(f"Unknown league '{raw}'. Type 'leagues' to list.") from None
+    if not (0 < factor <= 1):
+        raise ValueError(f"Custom NHLe factor must be between 0 and 1, got '{raw}'.")
+    return key, factor
+
+
+def parse_num(raw):
+    """float() that rejects nan, inf and negative values."""
+    val = float(raw)
+    if not math.isfinite(val) or val < 0:
+        raise ValueError(f"expected a non-negative number, got '{raw}'")
+    return val
 
 
 def p_nhler(pts82):
@@ -100,8 +111,6 @@ def render_bar(p_nhl, p_str, width=40):
 def show_result(pts82, stints=None, known_nhler=False, known_star=False):
     pn = 1.0 if (known_nhler or known_star) else p_nhler(pts82)
     ps = 1.0 if known_star else p_star(pts82)
-    if known_nhler and not known_star:
-        ps = p_star(pts82)
 
     print()
     print("  " + "═" * 52)
@@ -170,8 +179,8 @@ def collect_stints(label, kind, optional=False):
         except ValueError as e:
             print(f"    ! {e}"); continue
         try:
-            pts = float(ask("Points"))
-            gp  = float(ask("Games played"))
+            pts = parse_num(ask("Points"))
+            gp  = parse_num(ask("Games played"))
         except ValueError:
             print("    ! Invalid number."); continue
         if gp <= 0:
@@ -199,10 +208,17 @@ def ask_known_outcomes():
 
 
 def main():
+    # Bars and box-drawing characters crash cp1252 when output is redirected
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     args = sys.argv[1:]
 
     if len(args) == 2 and args[0] == "--pts82":
-        show_result(float(args[1]))
+        try:
+            pts82 = parse_num(args[1])
+        except ValueError as e:
+            sys.exit(f"  ! --pts82: {e}")
+        show_result(pts82)
         return
 
     print("\n  NHLe Forward D+3 Model  (3 seasons after draft, age ~21)")
@@ -224,4 +240,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except (KeyboardInterrupt, EOFError):
+        print("\n  Cancelled.")
+        sys.exit(130)

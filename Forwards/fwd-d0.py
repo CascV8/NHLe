@@ -13,14 +13,15 @@ Star threshold calibrated from Hockey-Reference GAR data (through 2025):
 Playoff stats pooled directly with regular season (same NHLe factor, equal weight).
 
 WJC-20:
-  Points are pooled into pts/82 via the WJC-20 NHLe factor (0.3055).
+  Points are pooled into pts/82 via the WJC-20 NHLe factor (0.3053).
   Additionally, a log-odds adjustment is applied based on the player's share
-  of their team's total points — capturing dominance independent of nation strength.
-  Neutral at ~12% team share. Max boost ~+14% at 50% base. Max drag ~-8%.
+  of their team's forward points — capturing dominance independent of nation strength.
+  Neutral at ~7.7% share (1 of 13 forwards). Max boost ~+14% at 50% base. Max drag ~-10%.
+  WJC-18 is handled the same way (factor 0.2207); the two adjustments are summed.
 
 Usage:
-    python nhle_model.py                  # interactive
-    python nhle_model.py --pts82 <value>  # skip input, use pre-calculated pts/82
+    python fwd-d0.py                  # interactive
+    python fwd-d0.py --pts82 <value>  # skip input, use pre-calculated pts/82
 
 League names (no spaces, use dashes):
     whl, ohl, qmjhl, ushl, ncaa, ahl, shl, liiga, khl
@@ -40,7 +41,7 @@ STAR_INTERCEPT  = -4.432684
 STAR_COEF       =  0.160648
 
 # WJC team-share adjustment (log-odds, applied after pts/82 model)
-# Neutral at 12% team share. Tanh curve, capped at +0.60 / -0.40.
+# Tanh curve, capped at +0.60 / -0.40.
 WJC_ADJ_CENTER  = 0.077  # neutral = average fwd share (1/13 forwards per team)
 WJC_ADJ_SCALE   = 0.08   # curve width
 WJC_ADJ_MAX_POS =  0.60  # max positive log-odds boost  (~+14% at 50% base)
@@ -77,7 +78,7 @@ LEAGUE_FACTORS = {
     "czechia-u20":  0.1037596731,
     "bchl":         0.09306532439,
     "slovakia2":    0.0915762792,
-    "u21-elit":    0.04983498016,
+    "u21-elite":    0.04983498016,
     "dnl":          0.02992688863,
 }
 
@@ -87,9 +88,20 @@ def parse_league(raw):
     if key in LEAGUE_FACTORS:
         return key, LEAGUE_FACTORS[key]
     try:
-        return key, float(key)
+        factor = float(key)
     except ValueError:
-        raise ValueError(f"Unknown league '{raw}'. Type 'leagues' to list.")
+        raise ValueError(f"Unknown league '{raw}'. Type 'leagues' to list.") from None
+    if not (0 < factor <= 1):
+        raise ValueError(f"Custom NHLe factor must be between 0 and 1, got '{raw}'.")
+    return key, factor
+
+
+def parse_num(raw):
+    """float() that rejects nan, inf and negative values."""
+    val = float(raw)
+    if not math.isfinite(val) or val < 0:
+        raise ValueError(f"expected a non-negative number, got '{raw}'")
+    return val
 
 
 def wjc_log_odds_adj(player_pts, team_pts):
@@ -140,7 +152,9 @@ def show_result(pts82, stints=None, wjc_meta=None):
 
     if stints:
         for s in stints:
-            tag = {"reg": "Reg    ", "po": "Playoff", "wjc": "WJC-20 "}[s["kind"]]
+            # WJC stints can be WJC-20 or WJC-18, so label them by league
+            tag = {"reg": "Reg    ", "po": "Playoff"}.get(
+                s["kind"], f"{s['league_key'].upper():<7}")
             ppg = s["pts"] / s["gp"]
             print(f"  {tag}  {s['league_key'].upper():<14}"
                   f"{s['pts']:>5.1f}pts/{s['gp']:>4.1f}gp "
@@ -151,10 +165,8 @@ def show_result(pts82, stints=None, wjc_meta=None):
         print(f"  Total NHLe pts    : {total_nhle:.3f} over {total_gp:.1f} GP")
 
     if wjc_meta:
-
         direction = "boost" if wjc_adj >= 0 else "drag"
-        print(f"  WJC adjustment    : {wjc_adj:+.3f} log-odds {direction}")  #
-
+        print(f"  WJC adjustment    : {wjc_adj:+.3f} log-odds {direction}")
 
     print(f"  NHL pts / 82      : {pts82:.1f}")
     print(f"  {'─' * 52}")
@@ -202,8 +214,8 @@ def collect_stints(label, kind, optional=False):
         except ValueError as e:
             print(f"    ! {e}"); continue
         try:
-            pts = float(ask("Points"))
-            gp  = float(ask("Games played"))
+            pts = parse_num(ask("Points"))
+            gp  = parse_num(ask("Games played"))
         except ValueError:
             print("    ! Invalid number."); continue
         if gp <= 0:
@@ -227,13 +239,14 @@ def collect_one_tournament(label, league_key):
     if raw.lower() in ("skip", ""):
         return [], None
     try:
-        player_pts = float(raw)
-        gp         = float(ask("Games played"))
-        team_pts   = float(ask("Team points by forwards only (all games)"))
+        player_pts = parse_num(raw)
+        gp         = parse_num(ask("Games played"))
+        team_pts   = parse_num(ask("Team points by forwards only (all games)"))
     except ValueError:
         print(f"    ! Invalid number, skipping {label}.")
         return [], None
-    if gp <= 0 or team_pts <= 0:
+    if gp <= 0 or team_pts <= 0 or player_pts > team_pts:
+        print(f"    ! Need GP > 0 and team pts >= player pts, skipping {label}.")
         return [], None
 
     factor = LEAGUE_FACTORS[league_key]
@@ -265,10 +278,17 @@ def collect_wjc():
 
 
 def main():
+    # Bars and box-drawing characters crash cp1252 when output is redirected
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     args = sys.argv[1:]
 
     if len(args) == 2 and args[0] == "--pts82":
-        show_result(float(args[1]))
+        try:
+            pts82 = parse_num(args[1])
+        except ValueError as e:
+            sys.exit(f"  ! --pts82: {e}")
+        show_result(pts82)
         return
 
     print("\n  NHLe Forward Draft Model")
@@ -288,4 +308,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except (KeyboardInterrupt, EOFError):
+        print("\n  Cancelled.")
+        sys.exit(130)

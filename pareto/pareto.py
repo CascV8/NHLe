@@ -7,6 +7,8 @@ total GAR they contributed) sums closest to exactly 1.
 
 Skaters = forwards + defensemen (goalies excluded). Players traded mid-season
 have their games and GAR merged into a single player-season row before ranking.
+
+GAR is Neil Paine's (github.com/Neil-Paine-1/NHL-Player-And-Team-Ratings, MIT).
 """
 
 from pathlib import Path
@@ -17,9 +19,10 @@ import numpy as np
 # ── Load data ─────────────────────────────────────────────────────────────────
 # Paths are relative to this file so the script runs from any directory
 HERE        = Path(__file__).resolve().parent
-DATA_PATH   = HERE / "NHL-GAR-data-v2.5-1956-2022.csv"
+DATA_PATH   = HERE.parent / "data" / "neil-paine" / "nhl_gar_historical.csv"
 OUTPUT_PATH = HERE / "pareto_results_by_season.csv"
-df = pd.read_csv(DATA_PATH, encoding='latin-1')
+df = pd.read_csv(DATA_PATH, encoding='latin-1', low_memory=False)
+df = df[df['lg_ID'] == 'NHL']   # the file also has the WHA
 
 # ── Parameters ────────────────────────────────────────────────────────────────
 POSITIONS = ['F', 'D']   # forwards + defensemen = "skaters" (goalies excluded)
@@ -28,9 +31,9 @@ MIN_GP    = None         # None = no games-played floor
 # ── Confirmed column names ─────────────────────────────────────────────────────
 COL_SEASON   = 'year_ID'
 COL_PLAYER   = 'player_ID'
-COL_GP       = 'gp'
+COL_GP       = 'GP'
 COL_POSITION = 'maj_pos'
-COL_GAR      = 'tot_gar'   # swap to 'adj_gar' for the schedule/roster-adjusted version
+COL_GAR      = 'GAR'       # swap to 'adj_GAR' for the schedule/roster-adjusted version
 
 skaters = df[df[COL_POSITION].isin(POSITIONS)].copy()
 
@@ -104,7 +107,7 @@ def print_pareto_window(season_df: pd.DataFrame, season: int, window: int = 8) -
 
 
 # ── Run for every season present in the data ──────────────────────────────────
-EXCLUDE_SEASONS = [2022]   # this file only has partial-season data for 2022 -- too small a sample
+EXCLUDE_SEASONS = []   # add a year_ID here to skip an incomplete season
 
 results = []
 for season in sorted(skaters[COL_SEASON].dropna().unique()):
@@ -132,7 +135,7 @@ print(results_df.to_string(index=False))
 results_df.to_csv(OUTPUT_PATH, index=False)
 
 # ── Print player-by-player detail around the optimal point for one example season ──
-WINDOW_SEASON = 2021   # change to inspect a different season
+WINDOW_SEASON = 2025   # year_ID (season end year); change to inspect a different season
 WINDOW_SIZE   = 8      # players shown on each side of the optimal point
 
 example_df = skaters[skaters[COL_SEASON] == WINDOW_SEASON]

@@ -31,8 +31,8 @@ import sys
 NHLER_INTERCEPT = -2.789350
 NHLER_COEF      =  0.105239
 
-STAR_INTERCEPT  = -6.414521
-STAR_COEF       =  0.126908
+STAR_INTERCEPT  = -6.373446
+STAR_COEF       =  0.124668
 
 WJC_ADJ_CENTER  = 0.077
 WJC_ADJ_SCALE   = 0.08
@@ -169,7 +169,7 @@ def show_result(pts82, stints=None, wjc_meta=None,
     print(f"  ██ NHL player (200 GP+): {pn:.1%}  (includes star %)")
     print(f"  ░░ Bust (<200 GP)      : {1-pn:.1%}")
     print()
-    print("  Star ≈ Jordan Kyrou, Jesper Bratt, Jordan Eberle, Adrian Kempe, Timo Meier")
+    print("  Star ≈ David Krejci, Sean Monahan, Kevin Fiala, William Karlsson, Clayton Keller")
     print("  D+2 model — age ~20, most confident junior-era model.")
     print("  " + "═" * 52)
     print()

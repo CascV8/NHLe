@@ -29,8 +29,8 @@ import sys
 NHLER_INTERCEPT = -2.988650
 NHLER_COEF      =  0.145690
 
-STAR_INTERCEPT  = -7.056617
-STAR_COEF       =  0.193971
+STAR_INTERCEPT  = -6.163253
+STAR_COEF       =  0.163926
 # ─────────────────────────────────────────────────────────────────────────────
 
 LEAGUE_FACTORS = {
@@ -141,7 +141,7 @@ def show_result(pts82, stints=None, known_nhler=False, known_star=False):
     print(f"  ██ NHL player (200 GP+): {pn:.1%}  (includes star %)")
     print(f"  ░░ Bust (<200 GP)      : {1-pn:.1%}")
     print()
-    print("  Star ≈ Brandon Montour, Ryan Suter, Aaron Ekblad, Jeff Petry, Noah Dobson")
+    print("  Star ≈ Jaccob Slavin, Hampus Lindholm, Tyson Barrie, Mikhail Sergachev, Seth Jones")
     print("  Defenseman D+3 model — age ~21. No WJC adjustment (not eligible).")
     print("  " + "═" * 52)
     print()

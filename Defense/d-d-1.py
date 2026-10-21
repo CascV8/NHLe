@@ -26,8 +26,8 @@ import math, sys
 # ── Model coefficients ── fit by training/fit.py, see training/REPORT.md ─────
 NHLER_INTERCEPT = -1.873767
 NHLER_COEF      =  0.158217
-STAR_INTERCEPT  = -4.795971
-STAR_COEF       =  0.264739
+STAR_INTERCEPT  = -4.273721
+STAR_COEF       =  0.213302
 
 WJC_ADJ_CENTER  = 0.125  # neutral = 1 of 8 rostered d-men
 WJC_ADJ_SCALE   = 0.08
@@ -150,7 +150,7 @@ def show_result(pts82, stints=None, wjc_adj=0.0):
     print(f"  ██ NHL player (200 GP+): {pn:.1%}  (includes star %)")
     print(f"  ░░ Bust (<200 GP)      : {1-pn:.1%}")
     print()
-    print("  Star ≈ Brandon Montour, Ryan Suter, Aaron Ekblad, Jeff Petry, Noah Dobson")
+    print("  Star ≈ Jaccob Slavin, Hampus Lindholm, Tyson Barrie, Mikhail Sergachev, Seth Jones")
     print("  Defenseman D-1 model — age ~17.")
     print("  " + "═" * 52)
     print()

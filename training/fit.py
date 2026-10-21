@@ -14,8 +14,8 @@ Feature:  NHLe pts/82 for the season N years from the draft, pooled the same way
 Outcomes: NHL player = 200+ NHL regular-season games (through the latest season).
           Star = NHL player whose peak GAR (mean of best 3 seasons) is in the top
           15% of NHL skaters at the position with 200+ GP and a season since
-          2008-09. GAR is Hockey-Reference's through 2020-21 and, after that,
-          estimated from MoneyPuck season stats (see gar_seasons).
+          2008-09. GAR is Neil Paine's (data/neil-paine, MIT) through 2024-25;
+          later seasons are estimated from MoneyPuck stats (see gar_seasons).
 Model:    log-odds = INTERCEPT + COEF * pts82, for each outcome separately.
           The WJC team-share adjustment in the scripts is applied on top and is
           not refit: it needs team totals the NHL data doesn't have.
@@ -34,8 +34,9 @@ import pandas as pd
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 DATA = HERE / "data"
-GAR_CSV = ROOT / "pareto" / "NHL-GAR-data-v2.5-1956-2022.csv"
-HR_LAST_SEASON = 2020          # start year of the last complete HR season (2020-21)
+GAR_CSV = ROOT / "data" / "neil-paine" / "nhl_gar_historical.csv"
+PAINE_LAST_SEASON = 2024       # start year of the last season in Paine's file (2024-25)
+ESTIMATE_TRAIN_LAST = 2020     # MoneyPuck->GAR estimate trains through 2020-21
 
 CLASSES = range(2006, 2019)    # 2019+ haven't had time to reach 200 GP / a GAR peak
 MIN_GP = 10
@@ -121,18 +122,20 @@ GAR_FEATURES = ["I_F_goals", "I_F_primaryAssists", "I_F_secondaryAssists", "xgd"
 def gar_seasons():
     """One GAR value per (NHL playerId, season start year), plus career GP.
 
-    Hockey-Reference GAR where it exists (through 2020-21). Later seasons use a
-    per-position linear fit of HR GAR on MoneyPuck season stats; on held-out
-    2017-18 to 2020-21 it explains 97.5% (F) / 95.9% (D) of the variance.
-    Estimated seasons are then rescaled to HR's league-wide GAR per team-game.
+    Neil Paine's GAR where it exists (through 2024-25). Seasons after that use
+    a per-position linear fit of his GAR on MoneyPuck season stats; trained on
+    2008-09 to 2020-21, it explains 95% (F) / 94% (D) of the variance on
+    2021-22 to 2024-25. Its level drifts with league scoring (+16% for F on
+    those seasons), so estimated seasons are rescaled to his league-wide GAR
+    per team-game.
     """
-    hr = pd.read_csv(GAR_CSV, encoding="latin-1")
-    hr = hr[hr.maj_pos.isin(["F", "D"])]
-    hr = hr.groupby(["player_ID", "name_common", "year_ID", "maj_pos"], as_index=False).agg(
-        gar=("tot_gar", "sum"), gp=("gp", "sum"))
-    hr["season"] = hr.year_ID - 1
-    hr = hr[hr.season <= HR_LAST_SEASON]
-    hr["key"] = hr.name_common.map(norm_name)
+    pg = pd.read_csv(GAR_CSV, encoding="latin-1", low_memory=False)
+    pg = pg[(pg.lg_ID == "NHL") & pg.maj_pos.isin(["F", "D"])]
+    pg = pg.groupby(["player_ID", "player_name", "year_ID", "maj_pos"], as_index=False).agg(
+        gar=("GAR", "sum"), gp=("GP", "sum"))
+    pg["season"] = pg.year_ID - 1
+    pg = pg[pg.season <= PAINE_LAST_SEASON]
+    pg["key"] = pg.player_name.map(norm_name)
 
     mp = pd.read_csv(DATA / "moneypuck.csv")
     mp = mp[mp.situation == "all"].copy()
@@ -142,44 +145,43 @@ def gar_seasons():
     mp["toi"] = mp.icetime / 3600
     mp["pos"] = np.where(mp.position == "D", "D", "F")
 
-    both = hr.merge(mp, on=["key", "season"])
+    both = pg.merge(mp, on=["key", "season"])
     both = both[(both.gp - both.games_played).abs() <= 3]
 
     mp["est_gar"] = np.nan
     for pos in ("F", "D"):
-        train = both[both.maj_pos == pos]
+        train = both[(both.maj_pos == pos) & (both.season <= ESTIMATE_TRAIN_LAST)]
         X = np.column_stack([np.ones(len(train))] + [train[f].to_numpy(float) for f in GAR_FEATURES])
         beta, *_ = np.linalg.lstsq(X, train.gar.to_numpy(float), rcond=None)
         rows = mp.pos == pos
         Xp = np.column_stack([np.ones(rows.sum())] + [mp.loc[rows, f].to_numpy(float) for f in GAR_FEATURES])
         mp.loc[rows, "est_gar"] = Xp @ beta
 
-    # HR player -> NHL id, from the seasons that matched
+    # Paine player -> NHL id, from the seasons that matched
     xwalk = both.groupby("player_ID").playerId.agg(lambda s: s.mode().iloc[0])
-    hr["playerId"] = hr.player_ID.map(xwalk)
-    hr_rows = hr.dropna(subset=["playerId"])[["playerId", "season", "gar", "gp", "maj_pos"]]
-    hr_rows = hr_rows.rename(columns={"maj_pos": "pos"})
-    # HR GAR is measured against replacement level, so the league total per
-    # team-game barely moves (2013-14 to 2018-19). Raw stats rose after 2021,
-    # which pushed the estimate ~25% high; rescale each estimated season back
-    # to HR's level.
+    pg["playerId"] = pg.player_ID.map(xwalk)
+    pg_rows = pg.dropna(subset=["playerId"])[["playerId", "season", "gar", "gp", "maj_pos"]]
+    pg_rows = pg_rows.rename(columns={"maj_pos": "pos"})
+    # GAR is measured against replacement level, so the league total per
+    # team-game barely moves, while raw stats drift with scoring. Rescale each
+    # estimated season to the GAR per team-game of the last real seasons.
     def team_games(season):
         teams = mp[(mp.season == season) & (mp.team.str.len() == 3)].team.nunique()
         return teams * 82
-    ref = range(2013, 2019)
-    hr_rate = hr[hr.season.isin(ref)].gar.sum() / sum(team_games(s) for s in ref)
-    mp_rows = mp[mp.season > HR_LAST_SEASON][["playerId", "season", "est_gar", "games_played", "pos"]]
+    ref = range(PAINE_LAST_SEASON - 3, PAINE_LAST_SEASON + 1)
+    rate = pg[pg.season.isin(ref)].gar.sum() / sum(team_games(s) for s in ref)
+    mp_rows = mp[mp.season > PAINE_LAST_SEASON][["playerId", "season", "est_gar", "games_played", "pos"]]
     mp_rows = mp_rows.rename(columns={"est_gar": "gar", "games_played": "gp"})
     for s in mp_rows.season.unique():
         rows = mp_rows.season == s
-        mp_rows.loc[rows, "gar"] *= hr_rate * team_games(s) / mp_rows.loc[rows, "gar"].sum()
-    # Matched HR seasons win; unmatched MP seasons up to 2020-21 fill the gaps
-    gap = mp[mp.season <= HR_LAST_SEASON][["playerId", "season", "est_gar", "games_played", "pos"]]
+        mp_rows.loc[rows, "gar"] *= rate * team_games(s) / mp_rows.loc[rows, "gar"].sum()
+    # Matched Paine seasons win; unmatched MP seasons up to his last fill the gaps
+    gap = mp[mp.season <= PAINE_LAST_SEASON][["playerId", "season", "est_gar", "games_played", "pos"]]
     gap = gap.rename(columns={"est_gar": "gar", "games_played": "gp"})
-    gap = gap.merge(hr_rows[["playerId", "season"]], how="left", indicator=True)
+    gap = gap.merge(pg_rows[["playerId", "season"]], how="left", indicator=True)
     gap = gap[gap._merge == "left_only"].drop(columns="_merge")
 
-    seasons = pd.concat([hr_rows, gap, mp_rows], ignore_index=True)
+    seasons = pd.concat([pg_rows, gap, mp_rows], ignore_index=True)
     seasons["playerId"] = seasons.playerId.astype(int)
     return seasons
 
@@ -368,7 +370,7 @@ def write_report(out, draft):
         "",
         f"Draft classes {out['classes'][0]}–{out['classes'][1]}: {len(draft)} picks with an NHL id "
         f"({(draft.pos == 'F').sum()} forwards, {(draft.pos == 'D').sum()} defensemen).",
-        f"NHL player = 200+ NHL games. Star = NHL player with peak GAR (mean of best 3 seasons) at or above "
+        f"NHL player = 200+ NHL games. Star = NHL player with peak GAR (Neil Paine's; mean of best 3 seasons) at or above "
         f"**{t['F']:.1f}** for forwards and **{t['D']:.1f}** for defensemen (85th percentile of 200+ GP skaters).",
         f"Star examples near the line — F: {', '.join(out['star_examples']['F'])}; "
         f"D: {', '.join(out['star_examples']['D'])}.",

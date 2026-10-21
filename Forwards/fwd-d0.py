@@ -28,8 +28,8 @@ import sys
 NHLER_INTERCEPT = -2.108845
 NHLER_COEF      =  0.091441
 
-STAR_INTERCEPT  = -5.927638
-STAR_COEF       =  0.171743
+STAR_INTERCEPT  = -5.894235
+STAR_COEF       =  0.170004
 
 # WJC team-share adjustment (log-odds, applied after pts/82 model)
 # Tanh curve, capped at +0.60 / -0.40.
@@ -167,7 +167,7 @@ def show_result(pts82, stints=None, wjc_meta=None):
     print(f"  ██ NHL player (200 GP+): {pn:.1%}  (includes star %)")
     print(f"  ░░ Bust (<200 GP)      : {1 - pn:.1%}")
     print()
-    print("  Star ≈ Jordan Kyrou, Jesper Bratt, Jordan Eberle, Adrian Kempe, Timo Meier")
+    print("  Star ≈ David Krejci, Sean Monahan, Kevin Fiala, William Karlsson, Clayton Keller")
     print("  " + "═" * 52)
     print()
 

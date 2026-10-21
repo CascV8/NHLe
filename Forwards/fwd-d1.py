@@ -28,8 +28,8 @@ import sys
 NHLER_INTERCEPT = -2.644919
 NHLER_COEF      =  0.108739
 
-STAR_INTERCEPT  = -6.043441
-STAR_COEF       =  0.134080
+STAR_INTERCEPT  = -6.158932
+STAR_COEF       =  0.137766
 
 # WJC-20 team-share log-odds adjustment (hand-set, not fit)
 WJC_ADJ_CENTER  = 0.077
@@ -159,7 +159,7 @@ def show_result(pts82, stints=None, wjc_meta=None):
     print(f"  ██ NHL player (200 GP+): {pn:.1%}  (includes star %)")
     print(f"  ░░ Bust (<200 GP)      : {1-pn:.1%}")
     print()
-    print("  Star ≈ Jordan Kyrou, Jesper Bratt, Jordan Eberle, Adrian Kempe, Timo Meier")
+    print("  Star ≈ David Krejci, Sean Monahan, Kevin Fiala, William Karlsson, Clayton Keller")
     print("  D+1 model — age ~19, higher confidence than draft year.")
     print("  " + "═" * 52)
     print()

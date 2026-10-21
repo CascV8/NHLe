@@ -1,3 +1,5 @@
 * text=auto eol=lf
 *.png binary
 *.jpg binary
+# Third-party data: keep byte-for-byte as published
+data/neil-paine/** -text

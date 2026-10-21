@@ -5,7 +5,7 @@ points per 82 games, then gives two logistic-regression probabilities:
 
 - **NHL player**: reaches 200 NHL games
 - **Star**: peak GAR (average of best 3 seasons) in the top 15% of NHL skaters at the position:
-  15.6+ for forwards, 12.6+ for defensemen
+  15.2+ for forwards, 13.5+ for defensemen ([Neil Paine's GAR](#credits))
 
 There is one model per position and season relative to the draft year, D-1 (age ~17) through
 D+5 (age ~23), each fit on the 2006–2018 draft classes (see [Training](#training)).
@@ -76,9 +76,9 @@ used otherwise.
 
 ### Pareto analysis
 
-`pareto/pareto.py` finds, for each season from 1956 to 2021, the top-N skaters by GAR where
-(share of skaters) + (share of total GAR) comes closest to 1. It uses the bundled
-`NHL-GAR-data-v2.5-1956-2022.csv` and writes `pareto/pareto_results_by_season.csv`.
+`pareto/pareto.py` finds, for each NHL season through 2024-25, the top-N skaters by GAR where
+(share of skaters) + (share of total GAR) comes closest to 1. It uses Neil Paine's GAR in
+`data/neil-paine/` and writes `pareto/pareto_results_by_season.csv`.
 
 ```
 python pareto/pareto.py
@@ -99,12 +99,21 @@ python training/fit.py --write        # refits all 14 models and updates the scr
   (Elite Prospects blocks scraping.) League names are mapped onto the NHLe factor table. A season is
   used only if at least half its games are in leagues with a factor, so ECHL, NTDP, high school
   and similar seasons are left out, just as they can't be entered in the scripts.
-- **Outcomes:** 200 NHL games, and peak GAR from Hockey-Reference through 2020-21. Later seasons
-  use an estimate fit to HR GAR from MoneyPuck stats (R² 0.96–0.98 on held-out seasons),
-  rescaled to HR's league-wide level.
+- **Outcomes:** 200 NHL games, and peak GAR from Neil Paine's data through 2024-25. Later seasons
+  use an estimate of his GAR from MoneyPuck stats (R² 0.94–0.95 on held-out seasons), rescaled
+  to his league-wide level.
 - **Fit:** one logistic regression per model and outcome on NHLe pts/82.
   [`training/REPORT.md`](training/REPORT.md) lists sample sizes, AUC, and log loss in-sample,
   leave-one-draft-class-out, and against the previous hand-set coefficients.
+
+## Credits
+
+- GAR data: [Neil Paine](https://github.com/Neil-Paine-1/NHL-Player-And-Team-Ratings),
+  `data/neil-paine/nhl_gar_historical.csv`, MIT license, Copyright (c) 2024 Neil Paine
+  (full text in [`data/neil-paine/LICENSE.txt`](data/neil-paine/LICENSE.txt)).
+- Draft picks and player career stats: the NHL's public APIs. Advanced stats:
+  [MoneyPuck](https://moneypuck.com). Both are fetched by [puckscrape](https://github.com/CascV8/Puckscrape)
+  when you retrain and are not included in this repo.
 
 ## Tests
 

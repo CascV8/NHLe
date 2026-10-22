@@ -10,6 +10,7 @@
 //   GET /api/league?league=ohl&season=2025  [{src, id, name, pos, team, gp, g, a, pts}]    (Elite Prospects only)
 //   GET /api/photo?nhl=&name=&born=&seasons=ohl:2025,liiga:2024   {url, league, season}: the NHL headshot, else a
 //                                           league-site photo (OHL, WHL, QMJHL, Liiga); cached until the month changes
+//   GET /api/img?u=<leaguestat photo>        the photo itself, so the page can cut out its white background
 //
 // Elite Prospects' API (https://api.eliteprospects.com, a paid key) covers prospects before they're
 // drafted and players who never are; the NHL's covers drafted and signed players only.
@@ -130,6 +131,7 @@ async function liigaPhoto(year, name) {
 
 const ID = /^\d{1,10}$/, YEAR = /^(19|20)\d\d$/, SLUG = /^[a-z0-9-]{2,40}$/;
 const NHL_HEADSHOT = /^https:\/\/assets\.nhle\.com\/mugs\/[\w/.-]{1,120}\.png$/;
+const LEAGUESTAT_PHOTO = /^https:\/\/assets\.leaguestat\.com\/[a-z]{2,10}\/\d{2,4}x\d{2,4}\/\d{1,10}\.jpg$/;
 
 const routes = {
   sources: async (_, env) => ({ ep: !!env.EP_API_KEY }),
@@ -149,9 +151,20 @@ const routes = {
       .filter(([lg, y]) => (lg in HOCKEYTECH_CLIENTS || lg === "liiga") && YEAR.test(y || ""));
     for (const [league, y] of tries) {
       const url = await (league === "liiga" ? liigaPhoto(+y, name) : hockeytechPhoto(league, +y, name, born)).catch(() => null);
-      if (url) return { url, league, season: +y };
+      // HockeyTech's photos are JPEGs on a white studio background: the page removes it (via api/img, for CORS).
+      if (url) return { url, league, season: +y, ...(league !== "liiga" && { cutout: `api/img?u=${encodeURIComponent(url)}` }) };
     }
     return { url: null };
+  },
+
+  // ?u=<HockeyTech photo URL>: the image itself, relayed so the page's canvas may read its pixels. Only leaguestat photos.
+  async img(q) {
+    const u = q.get("u") || "";
+    if (!LEAGUESTAT_PHOTO.test(u)) throw new HttpError(400, "not a league photo");
+    const r = await fetch(u, { headers: { "user-agent": "nhl-microstats NHLe cards" } });
+    if (!r.ok || !/^image\//.test(r.headers.get("content-type") || "")) throw new HttpError(502, `upstream ${r.status}`);
+    return new Response(r.body, { headers: { "content-type": r.headers.get("content-type"),
+      "cache-control": `public, max-age=${untilNextMonth()}` } });
   },
 
   async search(q, env) {
@@ -211,12 +224,13 @@ export async function onRequestGet({ request, env, params }) {
   const cache = typeof caches !== "undefined" ? caches.default : null;
   // The source is part of the answer, so the cache key carries it: adding the key doesn't serve stale NHL rows.
   // Photos carry the month in their key, so every lookup starts fresh on the 1st.
-  const month = name === "photo" ? `&_m=${new Date().toISOString().slice(0, 7)}` : "";
+  const month = name === "photo" || name === "img" ? `&_m=${new Date().toISOString().slice(0, 7)}` : "";
   const key = new Request(`${url.origin}${url.pathname}?${url.searchParams}&_ep=${env.EP_API_KEY ? 1 : 0}${month}`);
   const hit = cache && await cache.match(key);
   if (hit) return hit;
   try {
-    const res = json(await route(url.searchParams, env), 200, name === "photo" ? untilNextMonth() : TTL[name]);
+    const out = await route(url.searchParams, env);
+    const res = out instanceof Response ? out : json(out, 200, name === "photo" ? untilNextMonth() : TTL[name]);
     if (cache) await cache.put(key, res.clone());
     return res;
   } catch (e) {

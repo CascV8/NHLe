@@ -113,7 +113,7 @@ tbody tr:hover { background: var(--track); }
 .labels b { display: block; font: 700 1.05rem/1.1 var(--display); letter-spacing: .03em; }
 .labels span { font-size: .74rem; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
 @media (max-width: 480px) { .labels span { font-size: .62rem; letter-spacing: -.02em; } }
-.line { position: relative; height: 190px; margin: 0 12px; }
+.line { position: relative; height: 220px; margin: 0 12px; }
 .line svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 .dot { position: absolute; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%; background: var(--nhle);
   border: 2px solid var(--surface); }
@@ -121,6 +121,11 @@ tbody tr:hover { background: var(--track); }
   font: 700 1rem/1 var(--display); font-variant-numeric: tabular-nums; }
 .lg { position: absolute; bottom: 6px; transform: translateX(-50%); max-width: 13.5%; text-align: center; font: 600 .72rem/1.15 var(--display);
   letter-spacing: .05em; text-transform: uppercase; color: var(--muted); overflow-wrap: anywhere; }
+/* League logos sit on a light plate in both themes (like graphic.py's white card), so dark and white marks both read. */
+.lg.logo { display: grid; place-items: center; height: 36px; width: 64px; max-width: 13.5%; padding: 4px 6px;
+  background: #f3f6f8; border: 1px solid var(--line); border-radius: 7px; }
+.lg.logo img { display: block; height: 26px; width: 100%; object-fit: contain; }
+@media (max-width: 560px) { .lg.logo { height: 30px; padding: 3px; } .lg.logo img { height: 22px; } }
 .line .none { position: absolute; top: 45%; transform: translateX(-50%); color: var(--muted); }
 .line .ax { position: absolute; left: 0; top: 4px; font-size: .7rem; color: var(--muted); }
 
@@ -255,7 +260,16 @@ async function show(src, id, scroll = false) {
 function mainLeague(s) {
   const used = s.rows.filter(r => r.used && r.type === "reg" && !/^wjc/.test(r.key));
   const top = used.sort((a, b) => b.gp - a.gp)[0] || s.rows.filter(r => r.used)[0];
-  return top ? top.league : "";
+  return top;
+}
+
+// The season's main league as its logo (web/logos/), or its name when there's no logo for it.
+function leagueTag(s, x) {
+  const r = mainLeague(s);
+  if (!r) return "";
+  const src = SPEC.logos?.[r.key];
+  return src ? `<span class="lg logo" style="left:${x}%" title="${esc(r.league)}"><img src="${esc(src)}" alt="${esc(r.league)}" loading="lazy"></span>`
+    : `<span class="lg" style="left:${x}%">${esc(r.league)}</span>`;
 }
 
 function renderCard(p, c) {
@@ -280,7 +294,7 @@ function renderCard(p, c) {
   // NHLe line: columns centred at (i + .5) / 7; the top of the scale leaves room for the value labels.
   const played = c.seasons.filter(s => s.played);
   const top = Math.max(10, ...played.map(s => s.pts82)) * 1.45;
-  const x = i => (i + .5) / 7 * 100, y = v => 100 - v / top * 78 - 12;   // % of the box; 12% at the bottom for league tags
+  const x = i => (i + .5) / 7 * 100, y = v => 100 - v / top * 72 - 22;   // % of the box; 22% at the bottom for league logos
   const pts = c.seasons.map((s, i) => s.played ? `${x(i)},${y(s.pts82)}` : null);
   const segs = []; let cur = [];
   for (const p_ of pts) { if (p_) cur.push(p_); else if (cur.length) { segs.push(cur); cur = []; } }
@@ -291,7 +305,7 @@ function renderCard(p, c) {
     ${c.seasons.map((s, i) => s.played
       ? `<span class="dot" style="left:${x(i)}%;top:${y(s.pts82)}%"></span>
          <span class="val" style="left:${x(i)}%;top:${y(s.pts82)}%">${s.pts82.toFixed(1)}</span>
-         <span class="lg" style="left:${x(i)}%">${esc(mainLeague(s))}</span>`
+         ${leagueTag(s, x(i))}`
       : `<span class="none" style="left:${x(i)}%">—</span>`).join("")}
     <span class="ax">NHLe pts/82</span>`;
 

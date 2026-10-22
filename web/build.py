@@ -3,7 +3,7 @@ Build the NHLe prospect cards into a website.
 
   python web/build.py SITE_DIR [FUNCTIONS_DIR]
 
-Writes SITE_DIR/nhle.html, nhle.js and nhle-model.json, and copies the Pages
+Writes SITE_DIR/nhle.html, nhle.js, nhle-model.json and nhle-logos/, and copies the Pages
 Function (web/functions/) into FUNCTIONS_DIR (default: SITE_DIR/../functions).
 The microstats site runs this at deploy (see nhl-microstats' update-site.yml).
 
@@ -77,6 +77,9 @@ def model_spec():
         "star_thresholds": coef["star_thresholds"],
         "star_examples": coef["star_examples"],
         "models": models,
+        # League logos for the card, by league key (web/logos/fetch.py); a league without one keeps its text label.
+        "logos": {p.stem: f"nhle-logos/{p.name}" for p in sorted((WEB / "logos").glob("*.*"))
+                  if p.suffix in (".png", ".svg") and p.stem in factors},
     }
 
 
@@ -86,7 +89,11 @@ def build(site, functions=None):
     site.mkdir(parents=True, exist_ok=True)
     shutil.copy(WEB / "nhle.html", site / "nhle.html")
     shutil.copy(WEB / "nhle.js", site / "nhle.js")
-    (site / "nhle-model.json").write_text(json.dumps(model_spec(), indent=1), encoding="utf-8")
+    spec = model_spec()
+    (site / "nhle-model.json").write_text(json.dumps(spec, indent=1), encoding="utf-8")
+    (site / "nhle-logos").mkdir(exist_ok=True)
+    for path in spec["logos"].values():
+        shutil.copy(WEB / "logos" / Path(path).name, site / path)
     shutil.copytree(WEB / "functions", functions, dirs_exist_ok=True)
     return site
 

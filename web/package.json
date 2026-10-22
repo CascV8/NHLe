@@ -1,0 +1,5 @@
+{
+  "private": true,
+  "description": "The NHLe prospect cards for the website: page, model, Pages Function. See web/README.md.",
+  "type": "module"
+}

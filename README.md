@@ -74,6 +74,11 @@ The PNG is written to `graphic/output/`. League logos are optional: drop them in
 `graphic/logos/leagues/` named after the league (for example `WHL.png`). Grey placeholders are
 used otherwise.
 
+### On the web
+
+The same card, built live for any player you search, is on the microstats site (`nhle.html`).
+The code is in [`web/`](web/README.md) and reads its coefficients and league factors from this repo.
+
 ### Pareto analysis
 
 `pareto/pareto.py` finds, for each NHL season through 2024-25, the top-N skaters by GAR where
@@ -123,3 +128,4 @@ python -m unittest discover -s tests
 
 The tests check that every model gives valid, monotonic probabilities, that the league-factor
 tables agree across models, that bad input is rejected, and that `--pts82` runs end to end.
+`tests/test_web.py` and `node --test web/tests/nhle.test.mjs` check the website against the scripts.

@@ -1,0 +1,74 @@
+{
+ "ahl": {
+  "file": "ahl.png",
+  "invert_dark": false
+ },
+ "allsvenskan": {
+  "file": "allsvenskan.png",
+  "invert_dark": true
+ },
+ "del": {
+  "file": "del.png",
+  "invert_dark": false
+ },
+ "del2": {
+  "file": "del2.png",
+  "invert_dark": false
+ },
+ "khl": {
+  "file": "khl.png",
+  "invert_dark": false
+ },
+ "liiga": {
+  "file": "liiga.png",
+  "invert_dark": true
+ },
+ "mestis": {
+  "file": "mestis.png",
+  "invert_dark": false
+ },
+ "ncaa": {
+  "file": "ncaa.svg",
+  "invert_dark": false
+ },
+ "nhl": {
+  "file": "nhl.svg",
+  "invert_dark": false
+ },
+ "nl": {
+  "file": "nl.png",
+  "invert_dark": true
+ },
+ "ohl": {
+  "file": "ohl.png",
+  "invert_dark": false
+ },
+ "qmjhl": {
+  "file": "qmjhl.png",
+  "invert_dark": false
+ },
+ "shl": {
+  "file": "shl.png",
+  "invert_dark": true
+ },
+ "sl": {
+  "file": "sl.png",
+  "invert_dark": false
+ },
+ "slovakia": {
+  "file": "slovakia.png",
+  "invert_dark": false
+ },
+ "slovakia2": {
+  "file": "slovakia2.png",
+  "invert_dark": false
+ },
+ "vhl": {
+  "file": "vhl.png",
+  "invert_dark": true
+ },
+ "whl": {
+  "file": "whl.png",
+  "invert_dark": false
+ }
+}

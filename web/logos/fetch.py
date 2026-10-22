@@ -13,6 +13,8 @@ rest. The logos are trademarks of their leagues, shown to identify them.
 """
 
 import io
+import json
+import sys
 import time
 import urllib.request
 from pathlib import Path
@@ -23,12 +25,12 @@ HERE = Path(__file__).resolve().parent
 UA = {"User-Agent": "Mozilla/5.0 (NHLe league logos)"}
 HEIGHT = 96   # px; drawn at about 28px, so this covers 3x screens
 
-# The card draws every logo on a light plate (as graphic.py draws on white), so these are the light versions.
+# Logos are drawn transparent on the card; dark single-colour ones are inverted on the dark theme (logos.json).
 SVG = {
     "nhl": "https://assets.nhle.com/logos/nhl/svg/NHL_light.svg",
     "ncaa": "https://upload.wikimedia.org/wikipedia/commons/d/dd/NCAA_logo.svg",
 }
-# Single-colour white wordmarks would vanish on the plate: recolour them to the site's ink.
+# A white wordmark would vanish on the light theme: recolour it to the site's ink (and invert it on the dark one).
 RECOLOR = {"shl": (15, 26, 36)}
 TSDB = "https://r2.thesportsdb.com/images/media/league/badge/"
 PNG = {   # TheSportsDB league ids in comments
@@ -56,6 +58,29 @@ def get(url):
         return r.read()
 
 
+def is_dark_mono(path):
+    """A dark single-colour mark (black or grey, little colour) that would vanish on the dark theme."""
+    img = Image.open(path).convert("RGBA")
+    px = [p for p in img.getdata() if p[3] > 128]
+    if not px:
+        return False
+    sat = sum(max(p[:3]) - min(p[:3]) for p in px) / len(px) / 255
+    lum = sum(0.2126 * p[0] + 0.7152 * p[1] + 0.0722 * p[2] for p in px) / len(px) / 255
+    return sat < 0.12 and lum < 0.45
+
+
+def write_manifest():
+    """logos.json: each logo's file, and whether the card should invert it on the dark theme."""
+    out = {}
+    for p in sorted(HERE.glob("*.*")):
+        if p.suffix == ".png":
+            out[p.stem] = {"file": p.name, "invert_dark": is_dark_mono(p)}
+        elif p.suffix == ".svg":
+            out[p.stem] = {"file": p.name, "invert_dark": False}   # the NHL shield and NCAA disc read on both themes
+    (HERE / "logos.json").write_text(json.dumps(out, indent=1) + "\n", encoding="utf-8")
+    print("dark mono:", [k for k, v in out.items() if v["invert_dark"]])
+
+
 def main():
     for key, url in SVG.items():
         (HERE / f"{key}.svg").write_bytes(get(url))
@@ -71,7 +96,8 @@ def main():
         img.save(HERE / f"{key}.png", optimize=True)
         print(f"{key}.png {img.size}")
         time.sleep(1)   # be polite to TheSportsDB
+    write_manifest()
 
 
 if __name__ == "__main__":
-    main()
+    write_manifest() if "--manifest" in sys.argv else main()

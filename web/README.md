@@ -35,11 +35,11 @@ known outcome (it needs GAR). Reaching 200 NHL games does turn NHLer to 100% fro
   them: the NHL's own shield, NCAA from Wikimedia Commons, the rest from TheSportsDB). They're drawn on a
   light plate in both themes. A league without a file keeps its text label, so adding one is dropping in
   `<league key>.png` or `.svg`. The logos are trademarks of their leagues, shown to identify them.
-- **Player photos:** the NHL headshot when the NHL has one. Prospects it hasn't photographed get a URL
-  that redirects to a silhouette, which the Function treats as none. The page then asks `api/photo`,
-  which looks the player up on the league sites puckscrape scrapes that carry photos: HockeyTech (OHL,
-  WHL, QMJHL, with a birthdate check) and Liiga (an unambiguous name match only). Initials otherwise.
-  Photo lookups are cached until the month changes, so each player's photo is refreshed once a month.
+- **Player photos** all come from `api/photo`: the NHL headshot when the NHL has really photographed the
+  player (prospects it hasn't get a URL that redirects to a silhouette, treated as none), else the
+  player's photo on the league sites puckscrape scrapes that carry photos: HockeyTech (OHL, WHL, QMJHL,
+  with a birthdate check) and Liiga (an unambiguous name match only). Initials otherwise. Lookups are
+  cached until the month changes, so every photo, NHL or league, is refreshed once a month.
 
 ## Data: Elite Prospects, with the NHL as fallback
 

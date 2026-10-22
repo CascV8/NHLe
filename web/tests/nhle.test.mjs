@@ -144,5 +144,6 @@ test("the API rejects bad parameters without calling upstream", async () => {
   assert.deepEqual(await call("search", "q=a"), [200, []]);
   assert.equal((await call("photo", "name=x&seasons=ohl:2025"))[0], 400);
   assert.equal((await call("photo", "name=Some%20One&born=June&seasons=ohl:2025"))[0], 400);
+  assert.equal((await call("photo", "name=Some%20One&nhl=https://evil.example/x.png"))[0], 400);   // only NHL headshot URLs
   assert.deepEqual(await call("photo", "name=Some%20One&seasons=echl:2025,ohl:20x5"), [200, { url: null }]);   // nothing to look up
 });

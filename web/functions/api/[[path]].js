@@ -8,7 +8,8 @@
 //   GET /api/player?src=ep|nhl&id=123       {src, id, name, position, birthDate, nation, headshot, draft, stats}
 //   GET /api/draft?year=2025                [{src, id, name, pos, round, overall, team, club, league, nation}]
 //   GET /api/league?league=ohl&season=2025  [{src, id, name, pos, team, gp, g, a, pts}]    (Elite Prospects only)
-//   GET /api/photo?name=&born=&seasons=ohl:2025,liiga:2024   {url, league, season}: a league-site photo (OHL, WHL, QMJHL, Liiga)
+//   GET /api/photo?nhl=&name=&born=&seasons=ohl:2025,liiga:2024   {url, league, season}: the NHL headshot, else a
+//                                           league-site photo (OHL, WHL, QMJHL, Liiga); cached until the month changes
 //
 // Elite Prospects' API (https://api.eliteprospects.com, a paid key) covers prospects before they're
 // drafted and players who never are; the NHL's covers drafted and signed players only.
@@ -128,14 +129,22 @@ async function liigaPhoto(year, name) {
 // ── Routes ─────────────────────────────────────────────────────────────────────────────────────
 
 const ID = /^\d{1,10}$/, YEAR = /^(19|20)\d\d$/, SLUG = /^[a-z0-9-]{2,40}$/;
+const NHL_HEADSHOT = /^https:\/\/assets\.nhle\.com\/mugs\/[\w/.-]{1,120}\.png$/;
 
 const routes = {
   sources: async (_, env) => ({ ep: !!env.EP_API_KEY }),
 
-  // ?name=Nikita Klepov&born=2008-06-27&seasons=ohl:2025,ohl:2024 (newest first) -> {url, league, season}
+  // ?nhl=<NHL headshot URL>&name=Nikita Klepov&born=2008-06-27&seasons=ohl:2025,ohl:2024 (newest first)
+  //   -> {url, league, season}: the NHL headshot if it's a real photo, else a league-site photo. Cached for the month.
   async photo(q) {
-    const name = (q.get("name") || "").slice(0, 80), born = q.get("born") || "";
+    const name = (q.get("name") || "").slice(0, 80), born = q.get("born") || "", nhl = q.get("nhl") || "";
     if (nameKey(name).length < 3 || (born && !/^\d{4}-\d\d-\d\d$/.test(born))) throw new HttpError(400, "bad name or birthdate");
+    if (nhl && !NHL_HEADSHOT.test(nhl)) throw new HttpError(400, "bad NHL headshot");
+    if (nhl) {
+      // A prospect the NHL hasn't photographed has a headshot URL that redirects to a generic silhouette.
+      const r = await fetch(nhl, { method: "HEAD", redirect: "manual" }).catch(() => null);
+      if (r?.status === 200) return { url: nhl, league: "nhl" };
+    }
     const tries = (q.get("seasons") || "").split(",").slice(0, 4).map(s => s.split(":"))
       .filter(([lg, y]) => (lg in HOCKEYTECH_CLIENTS || lg === "liiga") && YEAR.test(y || ""));
     for (const [league, y] of tries) {
@@ -169,13 +178,7 @@ const routes = {
         ep(env, "/draft-selections", { player: id }).catch(() => [])]);
       return epPlayer(p, lines, drafts);
     }
-    const p = nhlPlayer(await get(`${NHL}/player/${id}/landing`));
-    // A prospect the NHL hasn't photographed has a headshot URL that redirects to a generic silhouette.
-    if (p.headshot) {
-      const r = await fetch(p.headshot, { method: "HEAD", redirect: "manual" }).catch(() => null);
-      if (!r || r.status !== 200) p.headshot = null;
-    }
-    return p;
+    return nhlPlayer(await get(`${NHL}/player/${id}/landing`));   // headshot unchecked: api/photo checks it, monthly
   },
 
   async draft(q) {

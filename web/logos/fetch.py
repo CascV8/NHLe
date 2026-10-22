@@ -21,10 +21,12 @@ import time
 import urllib.request
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageFile
+
+ImageFile.LOAD_TRUNCATED_IMAGES = True   # leijonat.fi's logo has a malformed chunk that browsers ignore and Pillow doesn't
 
 HERE = Path(__file__).resolve().parent
-UA = {"User-Agent": "Mozilla/5.0 (NHLe league logos)"}
+UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36"}
 HEIGHT = 96   # px; drawn at about 28px, so this covers 3x screens
 
 # Logos are drawn transparent on the card; dark single-colour ones are inverted on the dark theme (logos.json).
@@ -33,10 +35,26 @@ SVG = {
     "ncaa": "https://upload.wikimedia.org/wikipedia/commons/d/dd/NCAA_logo.svg",
     # U20 (formerly J20) Nationell has no logo of its own; its page on swehockey.se carries the federation's seal.
     "u20-nationell": "https://www.swehockey.se/media/qhwfyrrh/swehockey-logo.svg",
+    # Leagues TheSportsDB doesn't have, from their official sites (or the federation that runs them).
+    "ushl": "https://dbukjj6eu5tsf.cloudfront.net/ushl.sidearmsports.com/images/responsive_2022/ushl_on-dark.svg",
+    "mhl": "https://mhl.khl.ru/local/templates/mhl2022/i/2026/JHL_26_27_logo_RU.svg",
+    "latvia": "https://www.lhf.lv/media/www/img/logo.svg",                     # Latvian federation, which runs it
+    "u21-elite": "https://www.sihf.ch/media/qjtawbjk/rz_sihf_logo_portrait_pos_red_rgb.svg",   # Swiss federation (U20-Elit)
+    "wjc-20": "https://upload.wikimedia.org/wikipedia/commons/e/e8/IIHF_text_logo_%282025%29.svg",   # IIHF
+    "wjc-18": "https://upload.wikimedia.org/wikipedia/commons/e/e8/IIHF_text_logo_%282025%29.svg",
+}
+OFFICIAL_PNG = {
+    "bchl": "https://bchl.ca/images/navicons/bchl-logo.png",
+    "czechia": "https://www.hokej.cz/files/logos/ELH-horizontalni-RGB-23-23.png",          # Tipsport ELH
+    "czechia2": "https://www.hokej.cz/files/logos/maxa-liga-300.png",                      # Maxa liga
+    "czechia-u20": "https://www.hokej.cz/files/logos/novelogo-u20-1-.png",
+    "u20-sm-sarja": "https://tulospalvelu.leijonat.fi/images/Logo100x81.png",              # Finnish federation
+    "dnl": "https://www.deb-online.de/wp-content/uploads/2023/12/DEB-Logo_110px.png",      # German federation (DEB)
 }
 # White marks would vanish on the light theme: recolour them to the site's ink (and invert them on the dark one).
-RECOLOR = {"shl": (15, 26, 36)}
+RECOLOR = {"shl": (15, 26, 36), "u20-sm-sarja": (15, 26, 36)}
 RECOLOR_SVG = {"u20-nationell": "#0f1a24"}   # the seal is drawn with fill="#FFF"
+INVERT_SVG = {"wjc-20", "wjc-18"}            # the IIHF wordmark is dark navy
 TSDB = "https://r2.thesportsdb.com/images/media/league/badge/"
 PNG = {   # TheSportsDB league ids in comments
     "ahl": "bm25ej1582197507.png",          # 4738 American AHL
@@ -59,7 +77,10 @@ PNG = {   # TheSportsDB league ids in comments
 
 
 def get(url):
-    with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=30) as r:
+    # mhl.khl.ru sets a cookie and redirects to itself until it gets it back, so it gets a fresh cookie jar;
+    # everything else a plain request (a shared session upsets some of these sites).
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor()) if "khl.ru" in url else None
+    with (opener.open if opener else urllib.request.urlopen)(urllib.request.Request(url, headers=UA), timeout=30) as r:
         return r.read()
 
 
@@ -82,20 +103,28 @@ def write_manifest():
             out[p.stem] = {"file": p.name, "invert_dark": is_dark_mono(p)}
         elif p.suffix == ".svg":
             # The NHL shield and NCAA disc read on both themes; recoloured white marks need inverting on the dark one.
-            out[p.stem] = {"file": p.name, "invert_dark": p.stem in RECOLOR_SVG}
+            out[p.stem] = {"file": p.name, "invert_dark": p.stem in RECOLOR_SVG or p.stem in INVERT_SVG}
     (HERE / "logos.json").write_text(json.dumps(out, indent=1) + "\n", encoding="utf-8")
     print("dark mono:", [k for k, v in out.items() if v["invert_dark"]])
 
 
 def main():
     for key, url in SVG.items():
-        svg = get(url).decode("utf-8")
+        try:
+            svg = get(url).decode("utf-8")
+        except Exception as e:
+            print(f"{key}.svg: skipped ({e})")
+            continue
         if key in RECOLOR_SVG:
             svg = svg.replace('fill="#FFF"', f'fill="{RECOLOR_SVG[key]}"').replace('fill="#fff"', f'fill="{RECOLOR_SVG[key]}"')
         (HERE / f"{key}.svg").write_bytes(svg.encode("utf-8"))   # bytes: keep the source's line endings
         print(f"{key}.svg")
-    for key, name in PNG.items():
-        img = Image.open(io.BytesIO(get(TSDB + name))).convert("RGBA")
+    for key, url in {**{k: TSDB + name for k, name in PNG.items()}, **OFFICIAL_PNG}.items():
+        try:
+            img = Image.open(io.BytesIO(get(url))).convert("RGBA")
+        except Exception as e:   # one site being down shouldn't stop the rest; the file already here is kept
+            print(f"{key}.png: skipped ({e})")
+            continue
         img = img.crop(img.getbbox() or (0, 0, *img.size))   # trim transparent margins
         img.thumbnail((HEIGHT * 3, HEIGHT), Image.LANCZOS)
         if key in RECOLOR:

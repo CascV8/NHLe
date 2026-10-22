@@ -32,9 +32,13 @@ known outcome (it needs GAR). Reaching 200 NHL games does turn NHLer to 100% fro
 ## Logos and photos
 
 - **League logos** under the NHLe line come from `web/logos/` (`python web/logos/fetch.py` re-downloads
-  them: the NHL's own shield, NCAA from Wikimedia Commons, the rest from TheSportsDB). They're drawn on a
-  light plate in both themes. A league without a file keeps its text label, so adding one is dropping in
-  `<league key>.png` or `.svg`. The logos are trademarks of their leagues, shown to identify them.
+  them), one for every league the model rates: the NHL's own shield, NCAA and the IIHF (for the World
+  Juniors) from Wikimedia Commons, 16 from TheSportsDB, and the rest from the league's official site, or,
+  where a junior league has no logo of its own, the federation that runs it (as the league itself does:
+  Sweden's U20 Nationell, Finland's U20 SM-sarja, Germany's DNL, Latvia, Switzerland's U20-Elit). They're
+  drawn transparent; `logos.json` flags the dark single-colour ones, which are inverted on the dark theme.
+  A league without a file keeps its text label. The logos are trademarks of their owners, shown to
+  identify the leagues.
 - **Player photos** all come from `api/photo`: the NHL headshot when the NHL has really photographed the
   player (prospects it hasn't get a URL that redirects to a silhouette, treated as none), else the
   player's photo on the league sites puckscrape scrapes that carry photos: HockeyTech (OHL, WHL, QMJHL,

@@ -17,7 +17,12 @@ const NHL = "https://api-web.nhle.com/v1";
 const SEARCH = "https://search.d3.nhle.com/api/v1/search/player";
 const RECORDS = "https://records.nhl.com/site/api";
 const EP = "https://api.eliteprospects.com/v1";
-const TTL = { search: 3600, player: 3600, draft: 86400, league: 21600, sources: 300, photo: 86400 };   // seconds at the edge
+const TTL = { search: 3600, player: 3600, draft: 86400, league: 21600, sources: 300 };   // seconds at the edge
+
+/** Seconds until the next month starts (UTC): league photos are looked up again once a month. */
+export function untilNextMonth(now = new Date()) {
+  return Math.max(60, Math.ceil((Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1) - now) / 1000));
+}
 
 // Player photos from league sites, for prospects without an NHL headshot (sources as in puckscrape's
 // leagues/hockeytech.py and leagues/liiga.py). HockeyTech's key is the public one chl.ca sends.
@@ -202,11 +207,13 @@ export async function onRequestGet({ request, env, params }) {
   const url = new URL(request.url);
   const cache = typeof caches !== "undefined" ? caches.default : null;
   // The source is part of the answer, so the cache key carries it: adding the key doesn't serve stale NHL rows.
-  const key = new Request(`${url.origin}${url.pathname}?${url.searchParams}&_ep=${env.EP_API_KEY ? 1 : 0}`);
+  // Photos carry the month in their key, so every lookup starts fresh on the 1st.
+  const month = name === "photo" ? `&_m=${new Date().toISOString().slice(0, 7)}` : "";
+  const key = new Request(`${url.origin}${url.pathname}?${url.searchParams}&_ep=${env.EP_API_KEY ? 1 : 0}${month}`);
   const hit = cache && await cache.match(key);
   if (hit) return hit;
   try {
-    const res = json(await route(url.searchParams, env), 200, TTL[name]);
+    const res = json(await route(url.searchParams, env), 200, name === "photo" ? untilNextMonth() : TTL[name]);
     if (cache) await cache.put(key, res.clone());
     return res;
   } catch (e) {

@@ -39,6 +39,7 @@ known outcome (it needs GAR). Reaching 200 NHL games does turn NHLer to 100% fro
   that redirects to a silhouette, which the Function treats as none. The page then asks `api/photo`,
   which looks the player up on the league sites puckscrape scrapes that carry photos: HockeyTech (OHL,
   WHL, QMJHL, with a birthdate check) and Liiga (an unambiguous name match only). Initials otherwise.
+  Photo lookups are cached until the month changes, so each player's photo is refreshed once a month.
 
 ## Data: Elite Prospects, with the NHL as fallback
 

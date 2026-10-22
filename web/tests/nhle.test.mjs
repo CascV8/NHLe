@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 
 import { buildCard, firstEligibleDraft, leagueKey, positionGroup, probabilities } from "../nhle.js";
-import { epPlayer, hockeytechSeason, nameKey, nhlPlayer, onRequestGet, startYear } from "../functions/api/[[path]].js";
+import { epPlayer, hockeytechSeason, nameKey, nhlPlayer, onRequestGet, startYear, untilNextMonth } from "../functions/api/[[path]].js";
 
 const ROOT = fileURLToPath(new URL("../../", import.meta.url));
 function python(code) {
@@ -118,6 +118,12 @@ test("league photos: names match across sites, seasons by HockeyTech's naming", 
   assert.equal(hockeytechSeason(seasons, 2024), "4");
   assert.equal(hockeytechSeason(seasons, 2023), null);
   assert.equal(nhlPlayer({ ...landing, headshot: "https://assets.nhle.com/mugs/nhl/default-skater.png" }).headshot, null);
+});
+
+test("league photos are cached until the month changes", () => {
+  assert.equal(untilNextMonth(new Date("2026-10-22T16:00:00Z")), (10 * 24 - 16) * 3600);   // to Nov 1, 00:00 UTC
+  assert.equal(untilNextMonth(new Date("2026-12-31T23:00:00Z")), 3600);                   // across the new year
+  assert.equal(untilNextMonth(new Date("2026-02-28T23:59:30Z")), 60);                     // never under a minute
 });
 
 test("duplicate NHL stints are dropped", () => {

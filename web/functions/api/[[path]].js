@@ -8,6 +8,7 @@
 //   GET /api/player?src=ep|nhl&id=123       {src, id, name, position, birthDate, nation, headshot, draft, stats}
 //   GET /api/draft?year=2025                [{src, id, name, pos, round, overall, team, club, league, nation}]
 //   GET /api/league?league=ohl&season=2025  [{src, id, name, pos, team, gp, g, a, pts}]    (Elite Prospects only)
+//   GET /api/photo?name=&born=&seasons=ohl:2025,liiga:2024   {url, league, season}: a league-site photo (OHL, WHL, QMJHL, Liiga)
 //
 // Elite Prospects' API (https://api.eliteprospects.com, a paid key) covers prospects before they're
 // drafted and players who never are; the NHL's covers drafted and signed players only.
@@ -16,7 +17,14 @@ const NHL = "https://api-web.nhle.com/v1";
 const SEARCH = "https://search.d3.nhle.com/api/v1/search/player";
 const RECORDS = "https://records.nhl.com/site/api";
 const EP = "https://api.eliteprospects.com/v1";
-const TTL = { search: 3600, player: 3600, draft: 86400, league: 21600, sources: 300 };   // seconds at the edge
+const TTL = { search: 3600, player: 3600, draft: 86400, league: 21600, sources: 300, photo: 86400 };   // seconds at the edge
+
+// Player photos from league sites, for prospects without an NHL headshot (sources as in puckscrape's
+// leagues/hockeytech.py and leagues/liiga.py). HockeyTech's key is the public one chl.ca sends.
+const HOCKEYTECH = "https://lscluster.hockeytech.com/feed/index.php";
+const HOCKEYTECH_KEY = "f1aa699db3d81487";
+const HOCKEYTECH_CLIENTS = { ohl: "ohl", whl: "whl", qmjhl: "lhjmq" };
+const LIIGA = "https://liiga.fi/api/v2";
 
 const json = (body, status = 200, ttl = 0) => new Response(JSON.stringify(body), { status, headers: {
   "content-type": "application/json; charset=utf-8", "cache-control": ttl ? `public, max-age=${ttl}` : "no-store" } });
@@ -49,8 +57,10 @@ export function nhlPlayer(d) {
     if (!seen.has(key)) { seen.add(key); stats.push(row); }
   }
   const dd = d.draftDetails;
+  // Players the NHL hasn't photographed get a generic silhouette; treat that as no photo.
+  const headshot = d.headshot && !/default|silhouette/i.test(d.headshot) ? d.headshot : null;
   return { src: "nhl", id: String(d.playerId), name: `${d.firstName?.default ?? ""} ${d.lastName?.default ?? ""}`.trim(),
-    position: d.position, birthDate: d.birthDate, nation: d.birthCountry, headshot: d.headshot || null,
+    position: d.position, birthDate: d.birthDate, nation: d.birthCountry, headshot,
     draft: dd ? { year: dd.year, round: dd.round, overall: dd.overallPick, team: dd.teamAbbrev } : null, stats };
 }
 
@@ -75,12 +85,60 @@ export function epPlayer(p, lines, drafts) {
       team: nhlDraft.team?.name ?? nhlDraft.team?.shortName ?? "" } : null, stats };
 }
 
+/** A name for matching across sites: no accents, case or punctuation; "Last, First" turned around. */
+export function nameKey(name) {
+  let s = String(name || "");
+  if ((s.match(/, /g) || []).length === 1) { const [last, first] = s.split(", "); s = `${first} ${last}`; }
+  return s.normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z ]/g, "").replace(/\s+/g, " ").trim();
+}
+
+/** HockeyTech's regular-season id for a start year; names vary ("2025-26 Regular Season", "2025 - 26 ..."). */
+export function hockeytechSeason(seasons, year) {
+  for (const s of seasons) {
+    const name = s.season_name.toLowerCase(), years = (name.match(/\d{4}/g) || []).map(Number);
+    if (years[0] === year && name.includes("regular") && !/pre|prospect|showcase/.test(name)) return s.season_id;
+  }
+  return null;
+}
+
+async function hockeytechPhoto(league, year, name, born) {
+  const kit = params => get(`${HOCKEYTECH}?${new URLSearchParams({ feed: "modulekit", key: HOCKEYTECH_KEY,
+    client_code: HOCKEYTECH_CLIENTS[league], fmt: "json", lang: "en", ...params })}`).then(d => d.SiteKit);
+  const season = hockeytechSeason((await kit({ view: "seasons" })).Seasons || [], year);
+  if (!season) return null;
+  const rows = (await kit({ view: "statviewtype", type: "topscorers", season_id: season, first: 0, limit: 5000 })).Statviewtype || [];
+  for (const r of rows.filter(r => nameKey(r.name) === nameKey(name))) {
+    const p = (await kit({ view: "player", category: "profile", player_id: r.player_id })).Player || {};
+    if (p.primary_image && (!born || !p.birthdate || p.birthdate === born)) return p.primary_image;   // same name, same birthday
+  }
+  return null;
+}
+
+async function liigaPhoto(year, name) {
+  const rows = await get(`${LIIGA}/players/stats/summed/${year + 1}/${year + 1}/runkosarja/false?dataType=basicStats`);
+  const hits = rows.filter(r => r.pictureUrl && nameKey(`${r.firstName} ${r.lastName}`) === nameKey(name));
+  return hits.length === 1 ? hits[0].pictureUrl : null;   // no birthdates here: only take an unambiguous match
+}
+
 // ── Routes ─────────────────────────────────────────────────────────────────────────────────────
 
 const ID = /^\d{1,10}$/, YEAR = /^(19|20)\d\d$/, SLUG = /^[a-z0-9-]{2,40}$/;
 
 const routes = {
   sources: async (_, env) => ({ ep: !!env.EP_API_KEY }),
+
+  // ?name=Nikita Klepov&born=2008-06-27&seasons=ohl:2025,ohl:2024 (newest first) -> {url, league, season}
+  async photo(q) {
+    const name = (q.get("name") || "").slice(0, 80), born = q.get("born") || "";
+    if (nameKey(name).length < 3 || (born && !/^\d{4}-\d\d-\d\d$/.test(born))) throw new HttpError(400, "bad name or birthdate");
+    const tries = (q.get("seasons") || "").split(",").slice(0, 4).map(s => s.split(":"))
+      .filter(([lg, y]) => (lg in HOCKEYTECH_CLIENTS || lg === "liiga") && YEAR.test(y || ""));
+    for (const [league, y] of tries) {
+      const url = await (league === "liiga" ? liigaPhoto(+y, name) : hockeytechPhoto(league, +y, name, born)).catch(() => null);
+      if (url) return { url, league, season: +y };
+    }
+    return { url: null };
+  },
 
   async search(q, env) {
     const term = (q.get("q") || "").trim().slice(0, 60);
@@ -106,7 +164,13 @@ const routes = {
         ep(env, "/draft-selections", { player: id }).catch(() => [])]);
       return epPlayer(p, lines, drafts);
     }
-    return nhlPlayer(await get(`${NHL}/player/${id}/landing`));
+    const p = nhlPlayer(await get(`${NHL}/player/${id}/landing`));
+    // A prospect the NHL hasn't photographed has a headshot URL that redirects to a generic silhouette.
+    if (p.headshot) {
+      const r = await fetch(p.headshot, { method: "HEAD", redirect: "manual" }).catch(() => null);
+      if (!r || r.status !== 200) p.headshot = null;
+    }
+    return p;
   },
 
   async draft(q) {

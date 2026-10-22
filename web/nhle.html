@@ -173,7 +173,7 @@ tbody tr:hover { background: var(--track); }
 </div>
 
 <script type="module">
-import { buildCard } from "./nhle.js";
+import { buildCard, leagueKey } from "./nhle.js";
 
 // Coefficients, league factors and season rules, written from the NHLe repo by web/build.py.
 const SPEC = await (await fetch("nhle-model.json")).json();
@@ -252,6 +252,7 @@ async function show(src, id, scroll = false) {
     document.title = `${player.name} · NHLe Prospect Cards`;
     if (scroll) $("card-area").scrollIntoView({ behavior: "smooth", block: "start" });
     linkMicrostats(player);
+    if (!player.headshot) leaguePhoto(player);
   } catch (err) {
     $("card-area").innerHTML = `<p class="msg err">Couldn't load that player (${esc(err.message)}).</p>`;
   }
@@ -323,7 +324,7 @@ function renderCard(p, c) {
   return `<article class="card">
     <div class="card-head">
       ${p.headshot ? `<img class="shot" src="${esc(p.headshot)}" alt="" loading="lazy" onerror="this.outerHTML='<div class=&quot;shot none&quot;>${esc(initials)}</div>'">`
-        : `<div class="shot none">${esc(initials)}</div>`}
+        : `<div class="shot none" id="shot">${esc(initials)}</div>`}
       <div><h2 class="pname">${esc(p.name)}</h2>
         <div class="pline">${draftLine} · ${pos}${p.nation ? ` · ${esc(p.nation)}` : ""}${p.birthDate ? ` · born ${esc(p.birthDate)}` : ""}</div>
         <div class="pline" id="ms-link"></div></div>
@@ -342,6 +343,22 @@ function renderCard(p, c) {
     </table></div></div>
   </article>
   <p class="dim" style="font-size:.84rem;margin:0">${played.some(s => s.inProgress) ? "* Season in progress: a few games swing pts/82 a lot. " : ""}${played.some(s => s.known) ? "† Already 200 NHL games, so NHLer is 100%. " : ""}Source: ${p.src === "ep" ? "Elite Prospects" : "NHL"}.</p>`;
+}
+
+// No NHL headshot: look for the player's photo on a league site (OHL, WHL, QMJHL, Liiga), newest season first.
+const PHOTO_LEAGUES = new Set(["ohl", "whl", "qmjhl", "liiga"]);
+async function leaguePhoto(p) {
+  const seasons = [...new Set(p.stats.filter(s => s.type === "reg" && PHOTO_LEAGUES.has(leagueKey(SPEC, s.league)))
+    .sort((a, b) => b.season - a.season).map(s => `${leagueKey(SPEC, s.league)}:${s.season}`))].slice(0, 4);
+  if (!seasons.length) return;
+  try {
+    const { url } = await api("photo", { name: p.name, born: p.birthDate || "", seasons: seasons.join(",") });
+    const shot = $("shot");
+    if (url && shot) {
+      const img = Object.assign(document.createElement("img"), { className: "shot", src: url, alt: "" });
+      img.onload = () => shot.replaceWith(img);   // swap only once it has loaded, so a dead link keeps the initials
+    }
+  } catch (e) {}
 }
 
 async function linkMicrostats(p) {

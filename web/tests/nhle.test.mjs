@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 
 import { buildCard, firstEligibleDraft, leagueKey, positionGroup, probabilities } from "../nhle.js";
-import { epPlayer, nhlPlayer, onRequestGet, startYear } from "../functions/api/[[path]].js";
+import { epPlayer, hockeytechSeason, nameKey, nhlPlayer, onRequestGet, startYear } from "../functions/api/[[path]].js";
 
 const ROOT = fileURLToPath(new URL("../../", import.meta.url));
 function python(code) {
@@ -108,6 +108,18 @@ test("Elite Prospects rows normalize to the same shape", () => {
   assert.equal(startYear(20222023), 2022); assert.equal(startYear("2022-23"), 2022); assert.equal(startYear({ startYear: 2019 }), 2019);
 });
 
+test("league photos: names match across sites, seasons by HockeyTech's naming", () => {
+  assert.equal(nameKey("Massé, Maxim"), "maxim masse");        // the QMJHL writes Last, First
+  assert.equal(nameKey("Juraj Slafkovský"), "juraj slafkovsky");
+  assert.equal(nameKey("Ryan O'Reilly"), "ryan oreilly");
+  const seasons = [{ season_id: "1", season_name: "2025-26 Pre-Season" }, { season_id: "2", season_name: "2025 - 26 Regular Season" },
+    { season_id: "3", season_name: "2026 Playoffs" }, { season_id: "4", season_name: "2024-25 | Regular Season" }];
+  assert.equal(hockeytechSeason(seasons, 2025), "2");
+  assert.equal(hockeytechSeason(seasons, 2024), "4");
+  assert.equal(hockeytechSeason(seasons, 2023), null);
+  assert.equal(nhlPlayer({ ...landing, headshot: "https://assets.nhle.com/mugs/nhl/default-skater.png" }).headshot, null);
+});
+
 test("duplicate NHL stints are dropped", () => {
   const dup = { ...landing, seasonTotals: [...landing.seasonTotals, landing.seasonTotals.at(-1)] };
   assert.equal(nhlPlayer(dup).stats.length, nhlPlayer(landing).stats.length);
@@ -124,4 +136,7 @@ test("the API rejects bad parameters without calling upstream", async () => {
   assert.equal((await call("league", "league=ohl&season=2025"))[0], 400);   // needs Elite Prospects
   assert.equal((await call("nope", ""))[0], 404);
   assert.deepEqual(await call("search", "q=a"), [200, []]);
+  assert.equal((await call("photo", "name=x&seasons=ohl:2025"))[0], 400);
+  assert.equal((await call("photo", "name=Some%20One&born=June&seasons=ohl:2025"))[0], 400);
+  assert.deepEqual(await call("photo", "name=Some%20One&seasons=echl:2025,ohl:20x5"), [200, { url: null }]);   // nothing to look up
 });

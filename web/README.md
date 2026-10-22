@@ -29,6 +29,17 @@ passes the same rule the fit used; otherwise the card shows its NHLe and marks i
 Not applied on the web: the WJC team-share adjustment (it needs team scoring totals) and the star
 known outcome (it needs GAR). Reaching 200 NHL games does turn NHLer to 100% from D+2 on.
 
+## Logos and photos
+
+- **League logos** under the NHLe line come from `web/logos/` (`python web/logos/fetch.py` re-downloads
+  them: the NHL's own shield, NCAA from Wikimedia Commons, the rest from TheSportsDB). They're drawn on a
+  light plate in both themes. A league without a file keeps its text label, so adding one is dropping in
+  `<league key>.png` or `.svg`. The logos are trademarks of their leagues, shown to identify them.
+- **Player photos:** the NHL headshot when the NHL has one. Prospects it hasn't photographed get a URL
+  that redirects to a silhouette, which the Function treats as none. The page then asks `api/photo`,
+  which looks the player up on the league sites puckscrape scrapes that carry photos: HockeyTech (OHL,
+  WHL, QMJHL, with a birthdate check) and Liiga (an unambiguous name match only). Initials otherwise.
+
 ## Data: Elite Prospects, with the NHL as fallback
 
 The NHL's APIs only have players who were drafted or signed. Elite Prospects has everyone, including

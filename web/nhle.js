@@ -2,10 +2,11 @@
 // which web/build.py writes from the scripts, training/fit.py and training/coefficients.json.
 //
 // A season is pooled the way training/fit.py pools it for the fit: regular season and playoffs in
-// every league with a factor, plus that model's World Juniors (regular season only), into
-// pts/82 = sum(points x factor) / sum(games) x 82. It gets probabilities only if it's a season the
-// models were fit on: 10+ regular-season games in rated leagues, and at least half of the season's
-// league games in leagues with a factor (tournaments and short events aside).
+// every league with a factor, into pts/82 = sum(points x factor) / sum(games) x 82. The World Juniors
+// that model uses are not pooled: each is its own term, played + per_pts82 x (NHLe pts/82 there).
+// A season gets probabilities only if it's one the models were fit on: 10+ regular-season games in
+// rated leagues, and at least half of the season's league games in leagues with a factor
+// (tournaments and short events aside).
 
 export const SEASONS = [-1, 0, 1, 2, 3, 4, 5];
 export const label = rel => rel === 0 ? "DY" : rel < 0 ? `D${rel}` : `D+${rel}`;
@@ -22,10 +23,15 @@ const isEvent = (spec, name) => {
   return spec.events.includes(raw) || spec.events.includes(raw.replace(/\s+/g, "-"));
 };
 
-export function probabilities(spec, group, rel, pts82) {
+/** The World Juniors log-odds for one outcome; ``wjc`` maps a tournament to its NHLe pts/82. */
+export function wjcLogOdds(terms, wjc = {}) {
+  return Object.entries(wjc).reduce((t, [k, x]) => t + (terms[k] ? terms[k][0] + terms[k][1] * x : 0), 0);
+}
+
+export function probabilities(spec, group, rel, pts82, wjc = {}) {
   const m = spec.models[group][String(rel)];
-  const nhler = sigmoid(m.nhler[0] + m.nhler[1] * pts82);
-  return { nhler, star: Math.min(sigmoid(m.star[0] + m.star[1] * pts82), nhler) };
+  const nhler = sigmoid(m.nhler[0] + m.nhler[1] * pts82 + wjcLogOdds(m.wjc.nhler, wjc));
+  return { nhler, star: Math.min(sigmoid(m.star[0] + m.star[1] * pts82 + wjcLogOdds(m.wjc.star, wjc)), nhler) };
 }
 
 /** "F" or "D" from any position code (C, LW, R, D, "C/LW", ...); null for goalies. */
@@ -66,17 +72,24 @@ export function buildCard(spec, player, current) {
       else if (tournament && (s.type !== "reg" || !model.tournaments.includes(key))) why = "not in this model";
       return { ...s, key, factor: key ? spec.factors[key] : null, used: !why && s.gp > 0, why };
     });
-    const used = rows.filter(r => r.used);
+    const used = rows.filter(r => r.used && !tournaments.has(r.key));
     const gp = used.reduce((t, r) => t + r.gp, 0);
-    const regGp = used.filter(r => r.type === "reg" && !tournaments.has(r.key)).reduce((t, r) => t + r.gp, 0);
+    const regGp = used.filter(r => r.type === "reg").reduce((t, r) => t + r.gp, 0);
     const out = { rel, label: label(rel), year, rows, gp, played: gp > 0, future: year > current, inProgress: year === current };
     if (!out.played) return out;
     out.nhlePts = used.reduce((t, r) => t + r.pts * r.factor, 0);
     out.pts82 = out.nhlePts / gp * 82;
+    // Each World Juniors this model uses: NHLe pts/82 at the tournament, its own term in the model.
+    out.wjc = {};
+    for (const r of rows.filter(r => r.used && tournaments.has(r.key))) {
+      const w = out.wjc[r.key] ??= { pts: 0, gp: 0 };
+      w.pts += r.pts; w.gp += r.gp;
+    }
+    for (const [k, w] of Object.entries(out.wjc)) out.wjc[k] = w.pts * spec.factors[k] / w.gp * 82;
     if (regGp < spec.min_gp) out.unrated = `under ${spec.min_gp} games in rated leagues`;
     else if (ratedGp < spec.min_coverage * leagueGp) out.unrated = "most games in leagues without a factor";
     if (out.unrated) return out;
-    Object.assign(out, probabilities(spec, group, rel, out.pts82));
+    Object.assign(out, probabilities(spec, group, rel, out.pts82, out.wjc));
     if (model.known && nhlGpThrough(year) >= 200) { out.nhler = 1; out.known = true; }
     return out;
   });

@@ -413,16 +413,19 @@ $("draft-year").innerHTML = years.map(y => `<option>${y}</option>`).join("");
 $("league-season").innerHTML = years.map(y => `<option value="${y}">${seasonName(y)}</option>`).join("");
 $("league").innerHTML = LEAGUES.map(([slug, name]) => `<option value="${slug}">${esc(name)}</option>`).join("");
 $("notes").innerHTML = `
-  <p><b>How it works.</b> Each season's points, from every league with an NHL-equivalency factor (regular season, playoffs and
-    the World Juniors the model uses that year), are scaled by that league's factor and turned into a rate per 82 games. A
+  <p><b>How it works.</b> Each season's points, from every league with an NHL-equivalency factor (regular season and playoffs),
+    are scaled by that league's factor and turned into a rate per 82 games. The factors are network NHLe: solved together from
+    every player who played in two leagues in the same season. A
     logistic model per position and draft-relative season (D-1 is the year before the draft, DY the draft year) turns that
-    rate into the chance of becoming an NHLer (200+ games) and a star: peak GAR (best 3 seasons) in the top 15% at the position,
+    rate into the chance of becoming an NHLer (200+ games) and a star. The World Juniors aren't pooled into the rate, where
+    seven games would barely register: making the team and scoring there are their own terms in the model. A star is
+    peak GAR (best 3 seasons) in the top 15% at the position,
     ${SPEC.star_thresholds.F.toFixed(1)}+ for forwards (${esc(SPEC.star_examples.F.slice(0, 3).join(", "))}) and
     ${SPEC.star_thresholds.D.toFixed(1)}+ for defensemen (${esc(SPEC.star_examples.D.slice(0, 3).join(", "))}).
     Fit on the ${SPEC.classes[0]}-${SPEC.classes[1]} draft classes with Neil Paine's GAR.</p>
   <p>Leagues without a factor (minor hockey, U18 leagues, the ECHL) are listed but left out. A season is rated only if it's
     like the ones the models learned from: ${SPEC.min_gp}+ games in rated leagues, and at least half of the season's games in
-    them. The World Juniors team-share adjustment in the scripts isn't applied, since it needs each team's scoring totals.
+    them.
     Undrafted players are placed by their first eligible draft (18 by September 15).</p>
   <p id="src-note"></p>`;
 

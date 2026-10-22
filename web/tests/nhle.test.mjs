@@ -32,6 +32,8 @@ for g, models in build.model_spec()['models'].items():
         spec = importlib.util.spec_from_file_location('m', m['script']); mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
         out[g + rel] = [[mod.p_nhler(x), mod.p_star(x)] for x in (0, 5, 12.5, 30, 60, 90)]
+        wjc = {t: 25.0 + 10 * i for i, t in enumerate(mod.TOURNAMENTS)}
+        out[g + rel].append([mod.p_nhler(30, wjc), mod.p_star(30, wjc), wjc])
 print(json.dumps(out))`);
   for (const [k, rows] of Object.entries(ref)) {
     const group = k[0], rel = +k.slice(1);
@@ -39,6 +41,9 @@ print(json.dumps(out))`);
       const p = probabilities(SPEC, group, rel, x);
       close(p.nhler, rows[i][0]); close(p.star, rows[i][1]);
     });
+    const [nhler, star, wjc] = rows[6];
+    const p = probabilities(SPEC, group, rel, 30, wjc);
+    close(p.nhler, nhler); close(p.star, star);
   }
 });
 
@@ -51,12 +56,16 @@ test("Bedard's card pools leagues, playoffs and the right World Juniors", () => 
   assert.deepEqual(card.seasons.map(s => s.year), [2021, 2022, 2023, 2024, 2025, 2026, 2027]);
   const [d1, dy, dp1, dp2, dp3, dp4, dp5] = card.seasons;
   const f = SPEC.factors;
-  // D-1 (2021-22): WHL + WJC-18; his WJC-20 games aren't in the D-1 model.
-  close(d1.pts82, (100 * f.whl + 7 * f["wjc-18"]) / 66 * 82);
-  assert.equal(d1.rows.find(r => r.league === "WJC-20").why, "not in this model");
-  // Draft year: WHL regular season + playoffs + WJC-20.
-  close(dy.pts82, ((143 + 20) * f.whl + 23 * f["wjc-20"]) / 71 * 82);
-  close(dy.nhler, probabilities(SPEC, "F", 0, dy.pts82).nhler);
+  // D-1 (2021-22): WHL in pts/82; the WJC-18 and WJC-20 are their own terms, not pooled.
+  close(d1.pts82, 100 * f.whl / 62 * 82);
+  close(d1.wjc["wjc-18"], 7 * f["wjc-18"] / 4 * 82);
+  close(d1.wjc["wjc-20"], 8 * f["wjc-20"] / 7 * 82);
+  close(d1.nhler, probabilities(SPEC, "F", -1, d1.pts82, d1.wjc).nhler);
+  // Draft year: WHL regular season + playoffs, plus the WJC-20 term.
+  close(dy.pts82, (143 + 20) * f.whl / 64 * 82);
+  assert.deepEqual(Object.keys(dy.wjc), ["wjc-20"]);
+  close(dy.nhler, probabilities(SPEC, "F", 0, dy.pts82, dy.wjc).nhler);
+  assert.ok(dy.nhler > probabilities(SPEC, "F", 0, dy.pts82).nhler);   // 23 points in 7 games helps
   // D+1 is NHL only (the WC and "International" are events without a factor).
   close(dp1.pts82, 61 / 68 * 82);
   // 150 NHL games through D+2, 219 through D+3: NHLer becomes a known outcome from D+3.
@@ -85,7 +94,7 @@ test("league names from the NHL and Elite Prospects map to model keys", () => {
     ["j20-nationell", "u20-nationell"], ["U20 SM-liiga", "u20-sm-sarja"], ["Czechia U20", "czechia-u20"], ["Big Ten", "ncaa"],
     ["WJC-20", "wjc-20"], ["Liiga", "liiga"], ["NHL", "nhl"], ["shl", "shl"]])
     assert.equal(leagueKey(SPEC, name), key, name);
-  for (const name of ["ECHL", "WJC-20 D1A", "U18 SM-sarja", "16U AAA", "", null]) assert.equal(leagueKey(SPEC, name), null, name);
+  for (const name of ["WJC-20 D1A", "16U AAA", "", null]) assert.equal(leagueKey(SPEC, name), null, name);
 });
 
 test("positions and draft eligibility", () => {

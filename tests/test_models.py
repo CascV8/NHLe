@@ -45,7 +45,7 @@ class TestModels(unittest.TestCase):
                     self.assertEqual(first_seen.setdefault(key, factor), factor)
                     self.assertTrue(0 < factor <= 1)
         common = set.intersection(*(set(m.LEAGUE_FACTORS) for m in MODELS.values()))
-        self.assertIn("u21-elite", common)
+        self.assertTrue({"nhl", "ahl", "ohl", "shl", "khl", "ncaa"} <= common)
 
     def test_parse_league_rejects_bad_custom_factor(self):
         for name, m in MODELS.items():
@@ -64,15 +64,26 @@ class TestModels(unittest.TestCase):
                     with self.assertRaises(ValueError):
                         m.parse_num(bad)
 
-    def test_wjc_adjustment_neutral_and_bounded(self):
+    def test_wjc_terms(self):
         for name, m in MODELS.items():
-            if not hasattr(m, "wjc_log_odds_adj"):
-                continue
             with self.subTest(model=name):
-                neutral = m.wjc_log_odds_adj(m.WJC_ADJ_CENTER * 100, 100)
-                self.assertAlmostEqual(neutral, 0.0)
-                self.assertLessEqual(m.wjc_log_odds_adj(100, 100), m.WJC_ADJ_MAX_POS)
-                self.assertGreaterEqual(m.wjc_log_odds_adj(0, 100), m.WJC_ADJ_MAX_NEG)
+                self.assertEqual(set(m.NHLER_WJC), set(m.TOURNAMENTS))
+                self.assertEqual(set(m.STAR_WJC), set(m.TOURNAMENTS))
+                self.assertTrue(set(m.TOURNAMENTS) <= set(m.LEAGUE_FACTORS))
+                for t in m.TOURNAMENTS:
+                    for pts82 in (0, 20, 60):
+                        for wjc82 in (0, 15, 40, 90):
+                            pn, ps = m.p_nhler(pts82, {t: wjc82}), m.p_star(pts82, {t: wjc82})
+                            self.assertTrue(0.0 <= ps <= pn <= 1.0)
+                # A tournament the model doesn't use is ignored, and so is no tournament at all
+                self.assertEqual(m.p_nhler(30, {"not-a-tournament": 50}), m.p_nhler(30))
+                self.assertEqual(m.p_nhler(30, {}), m.p_nhler(30))
+
+    def test_tournaments_not_a_league_choice(self):
+        for name, m in MODELS.items():
+            for t in m.TOURNAMENTS:
+                with self.subTest(model=name, tournament=t), self.assertRaises(ValueError):
+                    m.parse_league(t)
 
 
 class TestCli(unittest.TestCase):

@@ -21,12 +21,13 @@ site on its next run (within about 5 minutes).
 ## The numbers come from this repo
 
 `nhle-model.json` is read, not copied by hand: league factors from the scripts' `LEAGUE_FACTORS`,
-coefficients from `training/coefficients.json`, and from `training/fit.py` the tournaments each model
-pools, the NHL league-name aliases, the events left out, and the 10-game / half-coverage rule. Refit
+coefficients (including the World Juniors terms) from `training/coefficients.json`, and from
+`training/fit.py` the tournaments each model uses, the NHL league-name aliases, the events left out, and the 10-game / half-coverage rule. Refit
 with `training/fit.py --write`, push, and the site follows. A season gets probabilities only when it
 passes the same rule the fit used; otherwise the card shows its NHLe and marks it "not rated".
 
-Not applied on the web: the WJC team-share adjustment (it needs team scoring totals) and the star
+The World Juniors are applied the way the scripts apply them: not pooled into pts/82, but as each
+tournament's own term (made the team, and NHLe pts/82 there). Not applied on the web: the star
 known outcome (it needs GAR). Reaching 200 NHL games does turn NHLer to 100% from D+2 on.
 
 ## Logos and photos

@@ -11,7 +11,7 @@ nhle-model.json is everything the browser needs, read from this repo so the
 site can't drift from the scripts: the league factors (the scripts'
 LEAGUE_FACTORS), the coefficients (training/coefficients.json, which fit.py
 writes into the scripts), and how training/fit.py builds a season (the
-tournaments each model pools, NHL league names, events, minimum games and
+World Juniors each model uses, NHL league names, events, minimum games and
 coverage). Nothing is imported, so it runs on a bare Python 3.8+.
 """
 
@@ -30,6 +30,11 @@ EP_ALIASES = {
     "u20-sm-sarja": "u20-sm-sarja", "u20-sm-liiga": "u20-sm-sarja", "czechia-u20": "czechia-u20",
     "hockeyallsvenskan": "allsvenskan", "allsvenskan": "allsvenskan", "national-league": "nl",
     "swiss-league": "sl", "wjc-20": "wjc-20", "wjc-18": "wjc-18", "dnl-u20": "dnl",
+    "j18-nationell": "u18-nationell", "j18-allsvenskan": "u18-nationell", "u20-elit": "swiss-u20",
+    "ligue-magnus": "france", "alpshl": "alpshl", "alps-hockey-league": "alpshl", "ice-hockey-league": "icehl",
+    "icehl": "icehl", "ebel": "icehl", "metal-ligaen": "denmark", "eliteserien": "norway",
+    "polska-hokej-liga": "poland", "slovakia-u20": "slovakia-u20",
+    "czechia-u18": "czechia-u18", "germany3": "oberliga", "oberliga": "oberliga", "usports": "usports",
 }
 EP_EVENTS = {"wc", "og", "olympics", "champions-hl", "spengler-cup", "hlinka-gretzky-cup", "whc-17",
              "u17-wc", "wjac-19", "4-nations", "international", "international-jr", "exhibition"}
@@ -59,6 +64,8 @@ def model_spec():
             "script": script,
             "nhler": [m["nhler"]["intercept"], m["nhler"]["coef"]],
             "star": [m["star"]["intercept"], m["star"]["coef"]],
+            # World Juniors terms: {tournament: [played, per NHLe pts/82 there]}
+            "wjc": {"nhler": m["nhler"].get("wjc", {}), "star": m["star"].get("wjc", {})},
             "tournaments": sorted(tournaments),
             "known": rel >= 2,   # D+2 to D+5 report a reached outcome as 100%
             "n": m["n"],
@@ -66,6 +73,8 @@ def model_spec():
     aliases = {k.lower(): v for k, v in fit["LEAGUE_ALIASES"].items()}
     aliases.update(EP_ALIASES)
     aliases.update({k: k for k in factors})
+    # Names for leagues the network solve left without a factor (too few players) are dropped
+    aliases = {k: v for k, v in aliases.items() if v in factors}
     return {
         "classes": coef["classes"],
         "factors": factors,

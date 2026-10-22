@@ -8,8 +8,10 @@ and web/build.py copies whatever is here into the site. A league without a file
 keeps its text label on the card, so adding one is just dropping a file in.
 
 Sources: the NHL's own asset server for the NHL shield, Wikimedia Commons for
-the NCAA logo, and TheSportsDB's league badges (free test API key "123") for the
-rest. The logos are trademarks of their leagues, shown to identify them.
+the NCAA logo, swehockey.se for U20 Nationell (the Swedish federation's seal,
+which the league's page uses), and TheSportsDB's league badges (free test API
+key "123") for the rest. The logos are trademarks of their owners, shown to
+identify the leagues.
 """
 
 import io
@@ -29,9 +31,12 @@ HEIGHT = 96   # px; drawn at about 28px, so this covers 3x screens
 SVG = {
     "nhl": "https://assets.nhle.com/logos/nhl/svg/NHL_light.svg",
     "ncaa": "https://upload.wikimedia.org/wikipedia/commons/d/dd/NCAA_logo.svg",
+    # U20 (formerly J20) Nationell has no logo of its own; its page on swehockey.se carries the federation's seal.
+    "u20-nationell": "https://www.swehockey.se/media/qhwfyrrh/swehockey-logo.svg",
 }
-# A white wordmark would vanish on the light theme: recolour it to the site's ink (and invert it on the dark one).
+# White marks would vanish on the light theme: recolour them to the site's ink (and invert them on the dark one).
 RECOLOR = {"shl": (15, 26, 36)}
+RECOLOR_SVG = {"u20-nationell": "#0f1a24"}   # the seal is drawn with fill="#FFF"
 TSDB = "https://r2.thesportsdb.com/images/media/league/badge/"
 PNG = {   # TheSportsDB league ids in comments
     "ahl": "bm25ej1582197507.png",          # 4738 American AHL
@@ -76,14 +81,18 @@ def write_manifest():
         if p.suffix == ".png":
             out[p.stem] = {"file": p.name, "invert_dark": is_dark_mono(p)}
         elif p.suffix == ".svg":
-            out[p.stem] = {"file": p.name, "invert_dark": False}   # the NHL shield and NCAA disc read on both themes
+            # The NHL shield and NCAA disc read on both themes; recoloured white marks need inverting on the dark one.
+            out[p.stem] = {"file": p.name, "invert_dark": p.stem in RECOLOR_SVG}
     (HERE / "logos.json").write_text(json.dumps(out, indent=1) + "\n", encoding="utf-8")
     print("dark mono:", [k for k, v in out.items() if v["invert_dark"]])
 
 
 def main():
     for key, url in SVG.items():
-        (HERE / f"{key}.svg").write_bytes(get(url))
+        svg = get(url).decode("utf-8")
+        if key in RECOLOR_SVG:
+            svg = svg.replace('fill="#FFF"', f'fill="{RECOLOR_SVG[key]}"').replace('fill="#fff"', f'fill="{RECOLOR_SVG[key]}"')
+        (HERE / f"{key}.svg").write_bytes(svg.encode("utf-8"))   # bytes: keep the source's line endings
         print(f"{key}.svg")
     for key, name in PNG.items():
         img = Image.open(io.BytesIO(get(TSDB + name))).convert("RGBA")

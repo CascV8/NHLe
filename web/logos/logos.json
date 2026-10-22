@@ -63,6 +63,10 @@
   "file": "slovakia2.png",
   "invert_dark": false
  },
+ "u20-nationell": {
+  "file": "u20-nationell.svg",
+  "invert_dark": true
+ },
  "vhl": {
   "file": "vhl.png",
   "invert_dark": true

@@ -40,12 +40,20 @@ class TestWebSpec(unittest.TestCase):
                 self.assertIn(key, self.spec["factors"])
                 self.assertEqual(name, name.lower())
 
+    def test_logos_are_for_rated_leagues(self):
+        self.assertIn("nhl", self.spec["logos"])
+        for key, path in self.spec["logos"].items():
+            with self.subTest(league=key):
+                self.assertIn(key, self.spec["factors"])
+                self.assertTrue((ROOT / "web" / "logos" / Path(path).name).is_file())
+
     def test_build_writes_the_site_files(self):
         with tempfile.TemporaryDirectory() as tmp:
             site = build.build(Path(tmp) / "site", Path(tmp) / "functions")
             for name in ("nhle.html", "nhle.js", "nhle-model.json"):
                 self.assertTrue((site / name).is_file(), name)
             self.assertTrue((Path(tmp) / "functions" / "api" / "[[path]].js").is_file())
+            self.assertTrue((site / "nhle-logos" / "nhl.svg").is_file())
 
 
 if __name__ == "__main__":

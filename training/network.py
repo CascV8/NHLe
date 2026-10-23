@@ -17,9 +17,10 @@ that season, over their points per game in the league (AHL 2025-26: 0.242 / 0.62
 PPG is pooled over the players in both leagues that season (points and games
 summed), over every season. Every league with enough shared players is a
 connector for every other, so the connectors' own NHLe values are solved at the
-same time: the equations above are iterated from the NHL (fixed at 1) until
-nothing moves. A one-shot weighted least-squares solve in log space is reported
-next to it as a cross-check (`wls` in factors.json).
+same time: a first pass solves leagues one at a time outward from the NHL
+(fixed at 1), each from the connectors solved before it, then every league is
+recomputed once from all of its connections. A one-shot weighted least-squares
+solve in log space is reported next to it as a cross-check (`wls` in factors.json).
 
 Data (training/scrape.py):
   landings.jsonl   NHL career histories (exact ids): every pick 2000-2025 and every
@@ -203,12 +204,23 @@ def solve(g):
         f[x] = sum(n / total * r * f[c] for c, n, r in todo[x])
         order[x] = todo[x]
     solve.order = order
-    return f
+    # Then every league again from all of its connections, now that every
+    # connector has a value: the AHL through the NHL, ECHL, KHL, SHL..., not just
+    # the NHL it was solved from. One pass, not repeated to a fixed point, which
+    # compounds small ratio errors around loops (that version put the SHL above 1).
+    final = {"nhl": 1.0}
+    for x, ps in paths.items():
+        if x == "nhl" or x not in f:
+            continue
+        ps = [(c, n, r) for c, n, r in ps if c in f]
+        total = sum(n for _, n, _ in ps)
+        final[x] = sum(n / total * r * f[c] for c, n, r in ps)
+    solve.first = f
+    return final
 
 
 def path_table(order, f):
-    """Each league's paths (the ones its value came from), with their share and
-    the NHLe each one gives, in the order the leagues were solved."""
+    """Each league's paths, with their share and the NHLe each one gives."""
     out = {}
     for x, ps in order.items():
         total = sum(n for _, n, _ in ps)
@@ -251,7 +263,8 @@ def main():
     g, per = usable(pool(pairs))
     factors = solve(g)
     wls = solve_wls(g)
-    paths = path_table(solve.order, factors)
+    first = solve.first
+    paths = path_table(links(g), first)
     rank = {lg: i + 1 for i, lg in enumerate(solve.order)}
 
     # Bootstrap over players: resample whole player-seasons' pair sets.
@@ -276,12 +289,13 @@ def main():
     out = {}
     for lg, f in sorted(factors.items(), key=lambda kv: -kv[1]):
         se = float(np.std(boot[lg])) if lg != "nhl" and len(boot[lg]) > 10 else 0.0
-        links = g[(g.league_a == lg) | (g.league_b == lg)]
+        lg_pairs = g[(g.league_a == lg) | (g.league_b == lg)]
         out[lg] = {"factor": round(f, 6), "log_se": round(se, 4), "wls": round(wls[lg], 6),
+                   "first_pass": round(first[lg], 6),
                    "solved": rank.get(lg, 0),
                    "paths": [[c, round(sh, 4), round(v, 6)] for c, sh, v in paths.get(lg, [])],
                    "players": int(per.get(lg, 0)),
-                   "nhl_direct": direct_n.get(lg, 0), "links": int(len(links)),
+                   "nhl_direct": direct_n.get(lg, 0), "links": int(len(lg_pairs)),
                    "from_tables": int(pairs[(pairs.player.str[0] == "t") &
                                             ((pairs.league_a == lg) | (pairs.league_b == lg))].shape[0])}
     meta = {"seasons": [SEASONS.start, SEASONS.stop - 1], "min_gp": MIN_GP, "min_pair": MIN_PAIR,
@@ -302,19 +316,20 @@ def write_report(meta, out, g):
              f"Seasons {meta['seasons'][0]}-{str(meta['seasons'][1] + 1)[2:]} (regular season), "
              f"{meta['player_seasons']:,} player-seasons in two or more leagues, {meta['pairs']} league pairs "
              f"with {meta['min_pair']}+ shared players ({meta['min_gp']}+ GP in each league).",
-             "Factor = NHL points per league point: the share-weighted sum of the league's paths, each "
+             "Factor = NHL points per league point: the share-weighted sum of all the league's paths, each "
              "connector PPG / league PPG × the connector's NHLe (the NHL itself is the direct path, at 1). "
-             "Leagues are solved one at a time, next the one sharing the most players with those already solved, "
-             "using those as its connectors (`#` is the order). `WLS` is a log-space least-squares solve over the same "
+             "The connectors' values come from a first pass (`1st`) that solves leagues one at a time outward "
+             "from the NHL, next the one sharing the most players with those already solved (`#` is the order); "
+             "the factor then uses every connection a league has. `WLS` is a log-space least-squares solve over the same "
              "pairs, as a cross-check. `±` is the bootstrap standard error of the log factor (0.05 ≈ ±5%). "
              "`Players` counts shared player-seasons across the league's pairs, `NHL direct` those shared with the NHL, "
              "`from sites` those that came from league-website tables rather than NHL career histories.", "",
-             "| # | League | Factor | ± | WLS | Old | Players | NHL direct | Pairs | From sites | Biggest paths (share → NHLe via it) |",
-             "|---|---|---|---|---|---|---|---|---|---|---|"]
+             "| # | League | Factor | ± | 1st | WLS | Old | Players | NHL direct | Pairs | From sites | Biggest paths (share → NHLe via it) |",
+             "|---|---|---|---|---|---|---|---|---|---|---|---|"]
     for lg, r in out.items():
         o = f"{old[lg]:.3f}" if lg in old else "–"
         top = ", ".join(f"{c} {sh:.0%} → {v:.3f}" for c, sh, v in r["paths"][:4])
-        lines.append(f"| {r['solved']} | {lg} | {r['factor']:.3f} | {r['log_se']:.3f} | {r['wls']:.3f} | {o} | {r['players']:,} | "
+        lines.append(f"| {r['solved']} | {lg} | {r['factor']:.3f} | {r['log_se']:.3f} | {r['first_pass']:.3f} | {r['wls']:.3f} | {o} | {r['players']:,} | "
                      f"{r['nhl_direct']:,} | {r['links']} | {r['from_tables']:,} | {top} |")
     lines += ["", "Re-run with `python training/scrape.py`, `python training/network.py`, then `python training/fit.py --write`.", ""]
     (HERE / "NETWORK.md").write_text("\n".join(lines), encoding="utf-8")

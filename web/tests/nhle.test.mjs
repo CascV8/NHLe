@@ -34,6 +34,7 @@ for g, models in build.model_spec()['models'].items():
         out[g + rel] = [[mod.p_nhler(x), mod.p_star(x)] for x in (0, 5, 12.5, 30, 60, 90)]
         wjc = {t: 25.0 + 10 * i for i, t in enumerate(mod.TOURNAMENTS)}
         out[g + rel].append([mod.p_nhler(30, wjc), mod.p_star(30, wjc), wjc])
+        out[g + rel].append([mod.p_nhler(30, wjc, 17.5), mod.p_star(30, wjc, 17.5), wjc])
 print(json.dumps(out))`);
   for (const [k, rows] of Object.entries(ref)) {
     const group = k[0], rel = +k.slice(1);
@@ -44,6 +45,8 @@ print(json.dumps(out))`);
     const [nhler, star, wjc] = rows[6];
     const p = probabilities(SPEC, group, rel, 30, wjc);
     close(p.nhler, nhler); close(p.star, star);
+    const p17 = probabilities(SPEC, group, rel, 30, wjc, 17.5);   // a 17-year-old at the WJC-20
+    close(p17.nhler, rows[7][0]); close(p17.star, rows[7][1]);
   }
 });
 
@@ -60,11 +63,12 @@ test("Bedard's card pools leagues, playoffs and the right World Juniors", () => 
   close(d1.pts82, 100 * f.whl / 62 * 82);
   close(d1.wjc["wjc-18"], 7 * f["wjc-18"] / 4 * 82);
   close(d1.wjc["wjc-20"], 8 * f["wjc-20"] / 7 * 82);
-  close(d1.nhler, probabilities(SPEC, "F", -1, d1.pts82, d1.wjc).nhler);
+  close(d1.wjcAge, (Date.UTC(2022, 0, 1) - Date.parse("2005-07-17")) / (365.25 * 86400e3));   // 16 at that WJC-20
+  close(d1.nhler, probabilities(SPEC, "F", -1, d1.pts82, d1.wjc, d1.wjcAge).nhler);
   // Draft year: WHL regular season + playoffs, plus the WJC-20 term.
   close(dy.pts82, (143 + 20) * f.whl / 64 * 82);
   assert.deepEqual(Object.keys(dy.wjc), ["wjc-20"]);
-  close(dy.nhler, probabilities(SPEC, "F", 0, dy.pts82, dy.wjc).nhler);
+  close(dy.nhler, probabilities(SPEC, "F", 0, dy.pts82, dy.wjc, dy.wjcAge).nhler);
   assert.ok(dy.nhler > probabilities(SPEC, "F", 0, dy.pts82).nhler);   // 23 points in 7 games helps
   // D+1 is NHL only (the WC and "International" are events without a factor).
   close(dp1.pts82, 61 / 68 * 82);

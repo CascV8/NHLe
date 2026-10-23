@@ -3,7 +3,8 @@
 //
 // A season is pooled the way training/fit.py pools it for the fit: regular season and playoffs in
 // every league with a factor, into pts/82 = sum(points x factor) / sum(games) x 82. The World Juniors
-// that model uses are not pooled: each is its own term, played + per_pts82 x (NHLe pts/82 there).
+// that model uses are not pooled: each is its own term, played + per_pts82 x (NHLe pts/82 there), and
+// for the WJC-20 both move with the player's age at the tournament.
 // A season gets probabilities only if it's one the models were fit on: 10+ regular-season games in
 // rated leagues, and at least half of the season's league games in leagues with a factor
 // (tournaments and short events aside).
@@ -23,15 +24,31 @@ const isEvent = (spec, name) => {
   return spec.events.includes(raw) || spec.events.includes(raw.replace(/\s+/g, "-"));
 };
 
-/** The World Juniors log-odds for one outcome; ``wjc`` maps a tournament to its NHLe pts/82. */
-export function wjcLogOdds(terms, wjc = {}) {
-  return Object.entries(wjc).reduce((t, [k, x]) => t + (terms[k] ? terms[k][0] + terms[k][1] * x : 0), 0);
+/**
+ * The World Juniors log-odds for one outcome. ``wjc`` maps a tournament to its NHLe pts/82; for the
+ * WJC-20 both terms also move by ``ageTerms`` per year of ``age`` (at the tournament) from ``center``.
+ */
+export function wjcLogOdds(terms, ageTerms, wjc, age, center) {
+  return Object.entries(wjc || {}).reduce((t, [k, x]) => {
+    if (!terms[k]) return t;
+    const [pa, wa] = ageTerms?.[k] ?? [0, 0], a = age - center;
+    return t + terms[k][0] + pa * a + (terms[k][1] + wa * a) * x;
+  }, 0);
 }
 
-export function probabilities(spec, group, rel, pts82, wjc = {}) {
+/** P(NHLer) and P(star). ``age`` is at the WJC-20 (default: the model's typical age there). */
+export function probabilities(spec, group, rel, pts82, wjc = {}, age = null) {
   const m = spec.models[group][String(rel)];
-  const nhler = sigmoid(m.nhler[0] + m.nhler[1] * pts82 + wjcLogOdds(m.wjc.nhler, wjc));
-  return { nhler, star: Math.min(sigmoid(m.star[0] + m.star[1] * pts82 + wjcLogOdds(m.wjc.star, wjc)), nhler) };
+  const a = age ?? m.wjc_age_typical ?? spec.wjc_age_center;
+  const lo = k => m[k][0] + m[k][1] * pts82 + wjcLogOdds(m.wjc[k], m.wjc_age[k], wjc, a, spec.wjc_age_center);
+  const nhler = sigmoid(lo("nhler"));
+  return { nhler, star: Math.min(sigmoid(lo("star")), nhler) };
+}
+
+/** Age in years on January 1 of ``year`` (the World Juniors), or null without a birth date. */
+export function ageOnJan1(birthDate, year) {
+  const born = Date.parse(birthDate);
+  return Number.isNaN(born) ? null : (Date.UTC(year, 0, 1) - born) / (365.25 * 86400e3);
 }
 
 /** "F" or "D" from any position code (C, LW, R, D, "C/LW", ...); null for goalies. */
@@ -89,7 +106,8 @@ export function buildCard(spec, player, current) {
     if (regGp < spec.min_gp) out.unrated = `under ${spec.min_gp} games in rated leagues`;
     else if (ratedGp < spec.min_coverage * leagueGp) out.unrated = "most games in leagues without a factor";
     if (out.unrated) return out;
-    Object.assign(out, probabilities(spec, group, rel, out.pts82, out.wjc));
+    out.wjcAge = ageOnJan1(player.birthDate, year + 1);
+    Object.assign(out, probabilities(spec, group, rel, out.pts82, out.wjc, out.wjcAge));
     if (model.known && nhlGpThrough(year) >= 200) { out.nhler = 1; out.known = true; }
     return out;
   });

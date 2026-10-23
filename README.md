@@ -4,17 +4,17 @@ NHL equivalency (NHLe) prospect models. Each model turns a player's season into 
 points per 82 games, then gives two logistic-regression probabilities:
 
 - **NHL player**: reaches 200 NHL games
-- **Star**: peak GAR (average of best 3 seasons) in the top 15% of NHL skaters at the position:
-  15.2+ for forwards, 13.5+ for defensemen ([Neil Paine's GAR](#credits))
+- **Star**: peak GAR (average of best 3 seasons) in the top 24% of NHL skaters at the position
+  (the Pareto cut): 12.7+ for forwards, 11.0+ for defensemen ([Neil Paine's GAR](#credits))
 
 There is one model per position and season relative to the draft year, D-1 (age ~17) through
 D+5 (age ~23), each fit on the 2006–2018 draft classes (see [Training](#training)).
 
 ```
-  [★★★★★★★★★██████████████████████░░░░░░░░░]
-  ★★ Star (top 15% GAR) : 22.6%
-  ██ NHL player (200 GP+): 77.5%  (includes star %)
-  ░░ Bust (<200 GP)      : 22.5%
+  [★★★★★★★★★★★★★★★███████████░░░░░░░░░░░░░░]
+  ★★ Star (top 24% GAR) : 38.3%
+  ██ NHL player (200 GP+): 66.2%  (includes star %)
+  ░░ Bust (<200 GP)      : 33.8%
 ```
 
 ## Install
@@ -59,8 +59,10 @@ in place of a league name.
 
 The World Juniors aren't pooled into pts/82, where 7 games would barely move 60 games of league
 play. Each tournament a model uses is its own fitted term: making the team adds `PLAYED` to the
-log-odds, and scoring there adds `PER_PTS82` per NHLe pts/82 at the tournament
-([`training/REPORT.md`](training/REPORT.md) lists them). D+2 to D+5 also ask whether the player has
+log-odds, and scoring there adds `PER_PTS82` per NHLe pts/82 at the tournament. The WJC-20 terms
+also depend on the player's age at the tournament: one line in age per position, fit across D-1
+to D+2, so making an under-20 team at 17 counts for more than at 19
+([`training/REPORT.md`](training/REPORT.md) lists them all). D+2 to D+5 also ask whether the player has
 already reached 200 GP or star GAR, and if so report that outcome as 100%.
 
 The scripts are generated from `training/model_template.py.in` by `training/fit.py --write`; edit

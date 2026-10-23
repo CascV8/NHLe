@@ -330,7 +330,7 @@ function renderCard(p, c) {
       <div class="gen">${L ? `<b>${seasonName(L.year)}</b><span>${L.label} · ${pct(L.star)} star · ${pct(L.nhler)} NHLer</span>`
         : `<span>No seasons in a league with an NHLe factor yet</span>`}</div>
     </div>
-    <div class="legend"><span><i style="background:var(--star)"></i>Star (top 15% peak GAR)</span>
+    <div class="legend"><span><i style="background:var(--star)"></i>Star (top ${SPEC.star_top}% peak GAR)</span>
       <span><i style="background:var(--nhler)"></i>NHLer (200+ GP)</span><span><i style="background:var(--bust)"></i>Bust</span></div>
     <div class="cols bars">${bars}</div>
     <div class="cols labels">${labels}</div>
@@ -418,8 +418,9 @@ $("notes").innerHTML = `
     every player who played in two leagues in the same season. A
     logistic model per position and draft-relative season (D-1 is the year before the draft, DY the draft year) turns that
     rate into the chance of becoming an NHLer (200+ games) and a star. The World Juniors aren't pooled into the rate, where
-    seven games would barely register: making the team and scoring there are their own terms in the model. A star is
-    peak GAR (best 3 seasons) in the top 15% at the position,
+    seven games would barely register: making the team and scoring there are their own terms in the model, and
+    at the WJC-20 they count for more the younger the player is. A star is
+    peak GAR (best 3 seasons) in the top ${SPEC.star_top}% at the position,
     ${SPEC.star_thresholds.F.toFixed(1)}+ for forwards (${esc(SPEC.star_examples.F.slice(0, 3).join(", "))}) and
     ${SPEC.star_thresholds.D.toFixed(1)}+ for defensemen (${esc(SPEC.star_examples.D.slice(0, 3).join(", "))}).
     Fit on the ${SPEC.classes[0]}-${SPEC.classes[1]} draft classes with Neil Paine's GAR.</p>

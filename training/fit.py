@@ -16,15 +16,20 @@ Feature:  NHLe pts/82 for the season N years from the draft: regular season +
 WJC:      The World Juniors are not pooled into pts/82, where 7 games would be
           drowned by 60 league games. Each tournament a model uses gets its own
           two terms, fit with the rest: PLAYED (made the team) and PER_PTS82
-          (times that tournament's NHLe pts/82). A light ridge (WJC_RIDGE) keeps
-          the rare cases (17-year-olds at the WJC-20) from running away.
+          (times that tournament's NHLe pts/82). The WJC-20 terms also depend on
+          the player's age at the tournament (Jan 1): a 17-year-old making an
+          under-20 team means more than a 19-year-old doing it. They're a line in
+          age, fit jointly across D-1 to D+2 per position, so the rare 17-year-olds
+          borrow from the trend instead of resting on a dozen players. A light
+          ridge (WJC_RIDGE) keeps small terms near zero.
 Outcomes: NHL player = 200+ NHL regular-season games (through the latest season).
           Star = NHL player whose peak GAR (mean of best 3 seasons) is in the top
-          15% of NHL skaters at the position with 200+ GP and a season since
-          2008-09. GAR is Neil Paine's (data/neil-paine, MIT) through 2024-25;
+          24% of NHL skaters at the position with 200+ GP and a season since
+          2008-09 (the Pareto cut). GAR is Neil Paine's (data/neil-paine, MIT) through 2024-25;
           later seasons are estimated from MoneyPuck stats (see gar_seasons).
 Model:    log-odds = INTERCEPT + COEF * pts82 + sum over WJCs (PLAYED + PER_PTS82 * wjc82),
-          for each outcome separately.
+          with WJC-20's PLAYED and PER_PTS82 each + slope * (age - 19), for each
+          outcome separately.
 """
 
 import importlib.util
@@ -48,9 +53,10 @@ ESTIMATE_TRAIN_LAST = 2020     # MoneyPuck->GAR estimate trains through 2020-21
 CLASSES = range(2006, 2019)    # 2019+ haven't had time to reach 200 GP / a GAR peak
 MIN_GP = 10
 MIN_COVERAGE = 0.5
-STAR_PCT = 0.85
+STAR_PCT = 0.76                # top 24%: the Pareto cut in "What's a point worth?"
 WJC_RIDGE = 1.0                # L2 penalty on the WJC terms: a N(0, 1) prior on PLAYED and
 WJC_SCALE = 20.0               # on PER_PTS82 per 20 NHLe pts/82 (about the spread of WJC scoring)
+WJC_AGE_CENTER = 19.0          # WJC-20 terms are a line in age at the tournament, centred here
 MAX_LOG_SE = 0.25              # leagues whose factor is less certain than ~±28% stay out of the scripts
 
 # Scripts per (position, season relative to draft year) and the tournaments
@@ -289,6 +295,10 @@ def model_sample(d, stints, cover, rel, tourn, factors):
     sample = d.set_index("playerId").join(agg, how="inner").join(reg_gp).join(all_gp).join(rated_gp)
     sample = sample[(sample.reg_gp >= MIN_GP) & (sample.rated_gp >= MIN_COVERAGE * sample.all_gp)].copy()
     sample["x"] = sample.nhle / sample.gp * 82
+    # Age on January 1 of the season, i.e. at the World Juniors
+    born = pd.to_datetime(sample.birthDate, errors="coerce")
+    jan1 = pd.to_datetime((sample.draftYear + rel).astype(int).astype(str) + "-01-01")
+    sample["wjc_age"] = ((jan1 - born).dt.days / 365.25).fillna(18.0 + rel - 0.5)
     for t in sorted(tourn):
         w = st[st.kind == t].groupby("playerId")[["pts", "gp"]].sum()
         sample[f"{t}_pts"] = w.pts.reindex(sample.index).fillna(0)
@@ -305,6 +315,37 @@ def design(sample, tourn, factors):
         w82 = np.divide(sample[f"{t}_pts"].to_numpy() * factors[t] * 82, gp, out=np.zeros(len(gp)), where=gp > 0)
         cols += [played, w82]
     return np.column_stack(cols)
+
+
+def wjc20_cols(sample, factors):
+    """The WJC-20 columns shared across D-1..D+2: PLAYED, NHLe pts/82, and each
+    times (age - WJC_AGE_CENTER)."""
+    gp = sample["wjc-20_gp"].to_numpy()
+    played = (gp > 0).astype(float)
+    w82 = np.divide(sample["wjc-20_pts"].to_numpy() * factors["wjc-20"] * 82, gp, out=np.zeros(len(gp)), where=gp > 0)
+    a = sample.wjc_age.to_numpy() - WJC_AGE_CENTER
+    return np.column_stack([played, w82, played * a, w82 * a])
+
+
+WJC20_RIDGE = [WJC_RIDGE, WJC_RIDGE * WJC_SCALE ** 2, WJC_RIDGE, WJC_RIDGE * WJC_SCALE ** 2]
+
+
+def joint_design(group, factors):
+    """Stack the models in ``group`` (one position, every model with the WJC-20):
+    each keeps its own intercept, pts/82 and WJC-18 columns, and all share the
+    four WJC-20 columns at the end."""
+    owns = [design(m["sample"], [t for t in m["tourn"] if t != "wjc-20"], factors) for m in group]
+    n = sum(len(o) for o in owns)
+    X = np.zeros((n, sum(o.shape[1] for o in owns) + 4))
+    rows, col, r0 = [], 0, 0
+    for m, o in zip(group, owns):
+        r1 = r0 + len(o)
+        X[r0:r1, col:col + o.shape[1]] = o
+        X[r0:r1, -4:] = wjc20_cols(m["sample"], factors)
+        rows.append((r0, r1, col, col + o.shape[1]))
+        col, r0 = col + o.shape[1], r1
+    ridge = np.concatenate([ridge_for([t for t in m["tourn"] if t != "wjc-20"]) for m in group] + [WJC20_RIDGE])
+    return X, ridge, rows
 
 
 def pooled_x(sample, tourn, factors):
@@ -377,7 +418,12 @@ def old_predict(old, prefix, sample, tourn):
         return sigmoid(a + b * x)
     X = design(sample.assign(x=old_x(sample, tourn, factors, pooled=False)), tourn, factors)
     beta = [a, b] + [v for t in sorted(tourn) for v in terms.get(t, (0.0, 0.0))]
-    return sigmoid(X @ np.array(beta))
+    z = X @ np.array(beta)
+    age_terms = getattr(old, f"{prefix}_WJC_AGE", {})
+    if "wjc-20" in tourn and "wjc-20" in age_terms:
+        cols = wjc20_cols(sample, factors)
+        z += cols[:, 2] * age_terms["wjc-20"][0] + cols[:, 3] * age_terms["wjc-20"][1]
+    return sigmoid(z)
 
 
 def old_x(sample, tourn, factors, pooled):
@@ -406,7 +452,7 @@ def main():
     draft["star"] = ((draft.nhler == 1) &
                      (draft.peak >= draft.pos.map(thresholds))).astype(int)
 
-    results = []
+    prepared = []
     for pos, rel, script, tourn in MODELS:
         d = draft[draft.pos == pos]
         sample, played = model_sample(d, stints, cover, rel, tourn, factors)
@@ -415,35 +461,72 @@ def main():
         st = st[(st.end - st.draftYear == rel) & st.kind.isin(["reg", "po"])]
         rows = st.groupby("playerId").apply(lambda g: list(zip(g.league, g.pts, g.gp)), include_groups=False)
         sample["club_stints"] = rows.reindex(sample.index).apply(lambda r: r if isinstance(r, list) else [])
+        prepared.append({"pos": pos, "rel": rel, "script": script, "tourn": sorted(tourn),
+                         "sample": sample, "played": played})
+
+    # The models with the WJC-20 are fit jointly per position, sharing its age line.
+    joint = {}
+    for pos in ("F", "D"):
+        group = [m for m in prepared if m["pos"] == pos and "wjc-20" in m["tourn"]]
+        X, ridge, rows = joint_design(group, factors)
+        classes = np.concatenate([m["sample"].draftYear.to_numpy() for m in group])
+        shared = list(range(X.shape[1] - 4, X.shape[1]))
+        for target in ("nhler", "star"):
+            y = np.concatenate([m["sample"][target].to_numpy() for m in group])
+            beta = fit_logistic(X, y, ridge)
+            cvp = cv_predict(X, y, classes, ridge)
+            for m, (r0, r1, c0, c1) in zip(group, rows):
+                cols = list(range(c0, c1)) + shared
+                joint[(pos, m["rel"], target)] = (beta[cols], X[r0:r1][:, cols], cvp[r0:r1])
+
+    results = []
+    for m in prepared:
+        pos, rel, script, tourn, sample, played = (m[k] for k in ("pos", "rel", "script", "tourn", "sample", "played"))
         X = design(sample, tourn, factors)
         Xp = np.column_stack([np.ones(len(sample)), pooled_x(sample, tourn, factors)])
         classes = sample.draftYear.to_numpy()
         ridge = ridge_for(tourn)
+        others = [t for t in tourn if t != "wjc-20"]
         res = {"pos": pos, "rel": rel, "script": script, "n": len(sample), "played": played,
-               "tournaments": sorted(tourn),
-               "wjc_played": {t: int((sample[f"{t}_gp"] > 0).sum()) for t in sorted(tourn)}}
+               "tournaments": tourn,
+               "wjc_played": {t: int((sample[f"{t}_gp"] > 0).sum()) for t in tourn}}
+        if "wjc-20" in tourn:
+            res["wjc_age_median"] = round(float(sample.wjc_age[sample["wjc-20_gp"] > 0].median()), 1)
         old = load_script(script) if (ROOT / script).exists() else None
         for target, prefix in (("nhler", "NHLER"), ("star", "STAR")):
             y = sample[target].to_numpy()
-            beta = fit_logistic(X, y, ridge)
-            p = sigmoid(X @ beta)
-            m = {"intercept": round(float(beta[0]), 6), "coef": round(float(beta[1]), 6),
-                 "wjc": {t: [round(float(beta[2 + 2 * i]), 6), round(float(beta[3 + 2 * i]), 6)]
-                         for i, t in enumerate(sorted(tourn))},
-                 "rate": float(y.mean()), "auc": float(auc(X @ beta, y)),
-                 "log_loss": log_loss(p, y), "cv_log_loss": log_loss(cv_predict(X, y, classes, ridge), y)}
-            # The same data with the World Juniors pooled into pts/82, as before
-            m["pooled_cv_log_loss"] = log_loss(cv_predict(Xp, y, classes, None), y)
+            per_model_cv = log_loss(cv_predict(X, y, classes, ridge), y)
+            if "wjc-20" in tourn:
+                beta, Xj, cvp = joint[(pos, rel, target)]
+                score = Xj @ beta
+                wjc = {t: [round(float(beta[2 + 2 * i]), 6), round(float(beta[3 + 2 * i]), 6)]
+                       for i, t in enumerate(others)}
+                wjc["wjc-20"] = [round(float(beta[-4]), 6), round(float(beta[-3]), 6)]
+                wjc_age = {"wjc-20": [round(float(beta[-2]), 6), round(float(beta[-1]), 6)]}
+            else:
+                beta = fit_logistic(X, y, ridge)
+                score, cvp = X @ beta, cv_predict(X, y, classes, ridge)
+                wjc = {t: [round(float(beta[2 + 2 * i]), 6), round(float(beta[3 + 2 * i]), 6)]
+                       for i, t in enumerate(others)}
+                wjc_age = {}
+            mres = {"intercept": round(float(beta[0]), 6), "coef": round(float(beta[1]), 6),
+                    "wjc": wjc, "wjc_age": wjc_age,
+                    "rate": float(y.mean()), "auc": float(auc(score, y)),
+                    "log_loss": log_loss(sigmoid(score), y), "cv_log_loss": log_loss(cvp, y),
+                    # Each model's World Juniors fit on its own, without the shared age line
+                    "per_model_cv_log_loss": per_model_cv,
+                    # The same data with the World Juniors pooled into pts/82, as before
+                    "pooled_cv_log_loss": log_loss(cv_predict(Xp, y, classes, None), y)}
             if old is not None:
-                m["old_log_loss"] = log_loss(old_predict(old, prefix, sample, tourn), y)
-            res[target] = m
+                mres["old_log_loss"] = log_loss(old_predict(old, prefix, sample, tourn), y)
+            res[target] = mres
         res["pts82_median"] = float(np.median(sample.x))
         results.append(res)
         print(f"{pos} D{rel:+d}  n={res['n']:4d}/{played}  NHLer {res['nhler']['rate']:.1%} "
-              f"(AUC {res['nhler']['auc']:.3f}, CV {res['nhler']['cv_log_loss']:.4f} vs pooled "
-              f"{res['nhler']['pooled_cv_log_loss']:.4f})  star {res['star']['rate']:.1%} "
-              f"(AUC {res['star']['auc']:.3f}, CV {res['star']['cv_log_loss']:.4f} vs pooled "
-              f"{res['star']['pooled_cv_log_loss']:.4f})  WJC {res['nhler']['wjc']}")
+              f"(AUC {res['nhler']['auc']:.3f}, CV {res['nhler']['cv_log_loss']:.4f} / per-model "
+              f"{res['nhler']['per_model_cv_log_loss']:.4f} / pooled {res['nhler']['pooled_cv_log_loss']:.4f})"
+              f"  star {res['star']['rate']:.1%} (AUC {res['star']['auc']:.3f}, CV {res['star']['cv_log_loss']:.4f}"
+              f" / per-model {res['star']['per_model_cv_log_loss']:.4f} / pooled {res['star']['pooled_cv_log_loss']:.4f})")
 
     examples = star_examples(career, thresholds)
     out = {"classes": [CLASSES.start, CLASSES.stop - 1], "star_thresholds": thresholds,
@@ -484,7 +567,8 @@ def write_script(res, factors, examples):
         wjc_doc = (f"The World Juniors ({names}) are their own fitted term, not pooled into\n"
                    "pts/82: making the team and scoring there move the odds on top of the\n"
                    "league season (NHLER_WJC / STAR_WJC), so a big tournament counts for more\n"
-                   "than its 7 games would.")
+                   "than its 7 games would." + (" The WJC-20 terms also depend on age at the\n"
+                   "tournament (NHLER_WJC_AGE / STAR_WJC_AGE)." if "wjc-20" in tourn else ""))
     else:
         wjc_doc = f"No World Juniors: players are {age}, no longer eligible."
     keep = {k: v for k, v in factors.items() if tourn or k not in TOURNAMENTS}
@@ -492,17 +576,19 @@ def write_script(res, factors, examples):
     factor_lines = "\n".join(f"    {json.dumps(k) + ':':<{width}} {v:.6f}," for k, v in
                              sorted(keep.items(), key=lambda kv: -kv[1]))
 
-    def wjc_dict(m):
-        return "{" + ", ".join(f'"{t}": ({a:.6f}, {b:.6f})' for t, (a, b) in m["wjc"].items()) + "}"
+    def wjc_dict(terms):
+        return "{" + ", ".join(f'"{t}": ({a:.6f}, {b:.6f})' for t, (a, b) in terms.items()) + "}"
 
     text = Template((HERE / "model_template.py.in").read_text(encoding="utf-8")).substitute(
         group_title=group, label=label, age=age, underline="=" * len(title), season_desc=season,
         group_plural="forwards" if pos == "F" else "defensemen", known_doc=known_doc, wjc_doc=wjc_doc,
         classes=f"{CLASSES.start}-{CLASSES.stop - 1}", script_name=Path(res["script"]).name,
         nhler_intercept=f"{res['nhler']['intercept']: .6f}", nhler_coef=f"{res['nhler']['coef']: .6f}",
-        nhler_wjc=wjc_dict(res["nhler"]),
+        nhler_wjc=wjc_dict(res["nhler"]["wjc"]), nhler_wjc_age=wjc_dict(res["nhler"]["wjc_age"]),
         star_intercept=f"{res['star']['intercept']: .6f}", star_coef=f"{res['star']['coef']: .6f}",
-        star_wjc=wjc_dict(res["star"]),
+        star_wjc=wjc_dict(res["star"]["wjc"]), star_wjc_age=wjc_dict(res["star"]["wjc_age"]),
+        wjc_age_typical=f"{res.get('wjc_age_median') or 18.0 + rel - 0.5:.1f}",
+        star_top=f"{round((1 - STAR_PCT) * 100)}%",
         factors=factor_lines, tournaments=repr(tuple(tourn)), known=known, examples=", ".join(examples))
     (ROOT / res["script"]).write_text(text, encoding="utf-8", newline="\n")
     print("wrote", res["script"])
@@ -519,17 +605,19 @@ def write_report(out, draft):
         f"({(draft.pos == 'F').sum()} forwards, {(draft.pos == 'D').sum()} defensemen). "
         f"League factors: network NHLe, {len(out['factors'])} leagues ([NETWORK.md](NETWORK.md)).",
         f"NHL player = 200+ NHL games. Star = NHL player with peak GAR (Neil Paine's; mean of best 3 seasons) at or above "
-        f"**{t['F']:.1f}** for forwards and **{t['D']:.1f}** for defensemen (85th percentile of 200+ GP skaters).",
+        f"**{t['F']:.1f}** for forwards and **{t['D']:.1f}** for defensemen (top {round((1 - STAR_PCT) * 100)}% of 200+ GP "
+        f"skaters, the Pareto cut).",
         f"Star examples near the line — F: {', '.join(out['star_examples']['F'])}; "
         f"D: {', '.join(out['star_examples']['D'])}.",
         "",
         "`n` is the number of picks with a usable season (10+ GP, at least half of it in leagues with an NHLe "
         "factor) out of those who played that season at all. `x` is NHLe pts/82 in league play (regular "
-        "season + playoffs). Log loss (lower is better) is on the same sample four ways: the fit; "
-        "leave-one-draft-class-out cross-validation; CV with the World Juniors pooled into pts/82 instead "
-        "of their own term; and the coefficients and factors the script had before this fit.",
+        "season + playoffs). Log loss (lower is better) is on the same sample five ways: the fit; "
+        "leave-one-draft-class-out cross-validation; CV with each model's World Juniors terms fit on their "
+        "own, without the shared WJC-20 age line (`per-season`); CV with the World Juniors pooled into "
+        "pts/82 instead of their own term (`pooled`); and the coefficients and factors the script had before this fit.",
         "",
-        "| Model | n / played | NHLer rate | NHLer coefs | AUC | log loss fit / CV / pooled CV / old | Star rate | Star coefs | AUC | log loss fit / CV / pooled CV / old |",
+        "| Model | n / played | NHLer rate | NHLer coefs | AUC | log loss fit / CV / per-season / pooled / old | Star rate | Star coefs | AUC | log loss fit / CV / per-season / pooled / old |",
         "|---|---|---|---|---|---|---|---|---|---|",
     ]
     for r in out["models"]:
@@ -540,28 +628,56 @@ def write_report(out, draft):
             old = f"{m['old_log_loss']:.3f}" if "old_log_loss" in m else "–"
             cells += [f"{m['rate']:.1%}", f"{m['intercept']:.3f} + {m['coef']:.4f}·x",
                       f"{m['auc']:.3f}",
-                      f"{m['log_loss']:.3f} / {m['cv_log_loss']:.3f} / {m['pooled_cv_log_loss']:.3f} / {old}"]
+                      f"{m['log_loss']:.3f} / {m['cv_log_loss']:.3f} / {m['per_model_cv_log_loss']:.3f} / "
+                      f"{m['pooled_cv_log_loss']:.3f} / {old}"]
         lines.append("| " + " | ".join(cells) + " |")
     lines += [
         "",
         "## World Juniors terms",
         "",
-        "Log-odds added for a player who played the tournament: `played + per_pts82 × (his NHLe pts/82 there)`. "
-        "`At 0 / 20 / 40` is the total for a tournament at that NHLe pts/82 (WJC points × the WJC factor / games × 82). "
+        "Log-odds added for a player who played the tournament: `played + per_pts82 × (his NHLe pts/82 there)`, "
+        "where NHLe pts/82 = WJC points × the WJC factor / games × 82. "
         f"Ridge {WJC_RIDGE} on these terms (a N(0, 1) prior on `played`, and on `per_pts82` per "
         f"{WJC_SCALE:.0f} pts/82), so a term with a handful of players stays near zero.",
         "",
-        "| Model | WJC | Played | NHLer: played, per pts/82 | at 0 / 20 / 40 | Star: played, per pts/82 | at 0 / 20 / 40 |",
-        "|---|---|---|---|---|---|---|",
+        "### WJC-20, by age at the tournament",
+        "",
+        f"One line in age (on January 1) per position, fit jointly across D-1 to D+2: `played` and `per_pts82` "
+        f"each move by a slope per year away from {WJC_AGE_CENTER:.0f}. Cells are the total log-odds at "
+        "0 / 20 / 40 NHLe pts/82.",
+        "",
+        "| Position | Outcome | played (at 19) | per year | per_pts82 (at 19) | per year | age 17 | age 18 | age 19 | age 20 |",
+        "|---|---|---|---|---|---|---|---|---|---|",
+    ]
+    for pos in ("F", "D"):
+        r = next(m for m in out["models"] if m["pos"] == pos and "wjc-20" in m["tournaments"])
+        for target in ("nhler", "star"):
+            a, b = r[target]["wjc"]["wjc-20"]
+            sa, sb = r[target]["wjc_age"]["wjc-20"]
+            ages = [" / ".join(f"{a + sa * (age - WJC_AGE_CENTER) + (b + sb * (age - WJC_AGE_CENTER)) * x:+.2f}"
+                               for x in (0, 20, 40)) for age in (17, 18, 19, 20)]
+            lines.append(f"| {'Forwards' if pos == 'F' else 'Defense'} | {'NHLer' if target == 'nhler' else 'Star'} | "
+                         f"{a:+.3f} | {sa:+.3f} | {b:+.4f} | {sb:+.4f} | " + " | ".join(ages) + " |")
+    lines += ["", "Players at the WJC-20 in each model's sample, and their median age:", ""]
+    lines += [f"- {'Fwd' if r['pos'] == 'F' else 'Def'} D{r['rel']:+d}".replace("D+0", "DY") +
+              f": {r['wjc_played']['wjc-20']} (median {r['wjc_age_median']})"
+              for r in out["models"] if "wjc-20" in r["tournaments"]]
+    lines += [
+        "",
+        "### WJC-18",
+        "",
+        "| Model | Played | NHLer: played, per pts/82 | at 0 / 20 / 40 | Star: played, per pts/82 | at 0 / 20 / 40 |",
+        "|---|---|---|---|---|---|",
     ]
     for r in out["models"]:
-        for t in r["tournaments"]:
-            cells = [f"{'Fwd' if r['pos'] == 'F' else 'Def'} D{r['rel']:+d}".replace("D+0", "DY"), t.upper(),
-                     str(r["wjc_played"][t])]
-            for target in ("nhler", "star"):
-                a, b = r[target]["wjc"][t]
-                cells += [f"{a:+.3f}, {b:+.4f}", " / ".join(f"{a + b * x:+.2f}" for x in (0, 20, 40))]
-            lines.append("| " + " | ".join(cells) + " |")
+        if "wjc-18" not in r["tournaments"]:
+            continue
+        cells = [f"{'Fwd' if r['pos'] == 'F' else 'Def'} D{r['rel']:+d}".replace("D+0", "DY"),
+                 str(r["wjc_played"]["wjc-18"])]
+        for target in ("nhler", "star"):
+            a, b = r[target]["wjc"]["wjc-18"]
+            cells += [f"{a:+.3f}, {b:+.4f}", " / ".join(f"{a + b * x:+.2f}" for x in (0, 20, 40))]
+        lines.append("| " + " | ".join(cells) + " |")
     lines += ["", "Re-run with `python training/scrape.py`, `python training/network.py`, then "
               "`python training/fit.py --write`.", ""]
     (HERE / "REPORT.md").write_text("\n".join(lines), encoding="utf-8")

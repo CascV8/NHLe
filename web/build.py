@@ -66,6 +66,9 @@ def model_spec():
             "star": [m["star"]["intercept"], m["star"]["coef"]],
             # World Juniors terms: {tournament: [played, per NHLe pts/82 there]}
             "wjc": {"nhler": m["nhler"].get("wjc", {}), "star": m["star"].get("wjc", {})},
+            # WJC-20 slopes per year of age at the tournament, from fit["WJC_AGE_CENTER"]
+            "wjc_age": {"nhler": m["nhler"].get("wjc_age", {}), "star": m["star"].get("wjc_age", {})},
+            "wjc_age_typical": m.get("wjc_age_median"),
             "tournaments": sorted(tournaments),
             "known": rel >= 2,   # D+2 to D+5 report a reached outcome as 100%
             "n": m["n"],
@@ -83,6 +86,8 @@ def model_spec():
         "events": sorted({e.lower() for e in fit["EVENTS"]} | EP_EVENTS),
         "min_gp": fit["MIN_GP"],
         "min_coverage": fit["MIN_COVERAGE"],
+        "wjc_age_center": fit["WJC_AGE_CENTER"],
+        "star_top": round((1 - fit["STAR_PCT"]) * 100),
         "star_thresholds": coef["star_thresholds"],
         "star_examples": coef["star_examples"],
         "models": models,

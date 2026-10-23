@@ -36,7 +36,7 @@ known outcome (it needs GAR). Reaching 200 NHL games does turn NHLer to 100% fro
   Juniors) from Wikimedia Commons, 16 from TheSportsDB, and the rest from the league's official site, or,
   where a junior league has no logo of its own, the federation that runs it (as the league itself does:
   Sweden's U20 Nationell, Finland's U20 SM-sarja, Germany's DNL, Latvia, Switzerland's U20-Elit). They're
-  drawn transparent; `logos.json` flags the dark single-colour ones, which are inverted on the dark theme.
+  drawn transparent; `logos.json` flags the dark single-colour ones, which are inverted (the site is dark-only).
   A league without a file keeps its text label. The logos are trademarks of their owners, shown to
   identify the leagues.
 - **Player photos** all come from `api/photo`: the NHL headshot when the NHL has really photographed the

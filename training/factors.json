@@ -72,6 +72,7 @@
    "players": 2355,
    "nhl_direct": 0,
    "links": 10,
+   "from_hockeydb": 0,
    "from_tables": 0
   },
   "khl": {
@@ -140,6 +141,7 @@
    "players": 534,
    "nhl_direct": 53,
    "links": 11,
+   "from_hockeydb": 0,
    "from_tables": 0
   },
   "shl": {
@@ -203,6 +205,7 @@
    "players": 966,
    "nhl_direct": 16,
    "links": 10,
+   "from_hockeydb": 0,
    "from_tables": 247
   },
   "nl": {
@@ -246,6 +249,7 @@
    "players": 431,
    "nhl_direct": 26,
    "links": 6,
+   "from_hockeydb": 0,
    "from_tables": 305
   },
   "czechia": {
@@ -309,6 +313,7 @@
    "players": 901,
    "nhl_direct": 24,
    "links": 10,
+   "from_hockeydb": 0,
    "from_tables": 653
   },
   "liiga": {
@@ -377,6 +382,7 @@
    "players": 964,
    "nhl_direct": 32,
    "links": 11,
+   "from_hockeydb": 0,
    "from_tables": 455
   },
   "del": {
@@ -420,6 +426,7 @@
    "players": 127,
    "nhl_direct": 10,
    "links": 6,
+   "from_hockeydb": 0,
    "from_tables": 58
   },
   "ahl": {
@@ -503,6 +510,7 @@
    "players": 4404,
    "nhl_direct": 2107,
    "links": 14,
+   "from_hockeydb": 0,
    "from_tables": 1166
   },
   "vhl": {
@@ -531,6 +539,7 @@
    "players": 208,
    "nhl_direct": 0,
    "links": 3,
+   "from_hockeydb": 0,
    "from_tables": 0
   },
   "wjc-20": {
@@ -654,6 +663,7 @@
    "players": 1766,
    "nhl_direct": 42,
    "links": 22,
+   "from_hockeydb": 0,
    "from_tables": 0
   },
   "allsvenskan": {
@@ -702,6 +712,7 @@
    "players": 581,
    "nhl_direct": 20,
    "links": 7,
+   "from_hockeydb": 0,
    "from_tables": 247
   },
   "icehl": {
@@ -730,6 +741,7 @@
    "players": 31,
    "nhl_direct": 0,
    "links": 3,
+   "from_hockeydb": 0,
    "from_tables": 0
   },
   "ncaa": {
@@ -763,6 +775,7 @@
    "players": 400,
    "nhl_direct": 25,
    "links": 4,
+   "from_hockeydb": 0,
    "from_tables": 0
   },
   "slovakia": {
@@ -801,6 +814,7 @@
    "players": 71,
    "nhl_direct": 0,
    "links": 5,
+   "from_hockeydb": 0,
    "from_tables": 0
   },
   "czechia2": {
@@ -834,6 +848,7 @@
    "players": 738,
    "nhl_direct": 0,
    "links": 4,
+   "from_hockeydb": 0,
    "from_tables": 653
   },
   "ohl": {
@@ -887,6 +902,7 @@
    "players": 629,
    "nhl_direct": 0,
    "links": 8,
+   "from_hockeydb": 0,
    "from_tables": 276
   },
   "echl": {
@@ -920,6 +936,7 @@
    "players": 1897,
    "nhl_direct": 0,
    "links": 4,
+   "from_hockeydb": 0,
    "from_tables": 1197
   },
   "mestis": {
@@ -958,6 +975,7 @@
    "players": 598,
    "nhl_direct": 0,
    "links": 5,
+   "from_hockeydb": 0,
    "from_tables": 511
   },
   "ushl": {
@@ -1011,6 +1029,7 @@
    "players": 400,
    "nhl_direct": 0,
    "links": 8,
+   "from_hockeydb": 0,
    "from_tables": 188
   },
   "whl": {
@@ -1074,6 +1093,7 @@
    "players": 725,
    "nhl_direct": 0,
    "links": 10,
+   "from_hockeydb": 0,
    "from_tables": 452
   },
   "sl": {
@@ -1092,6 +1112,7 @@
    "players": 310,
    "nhl_direct": 0,
    "links": 1,
+   "from_hockeydb": 0,
    "from_tables": 327
   },
   "wjc-18": {
@@ -1190,6 +1211,7 @@
    "players": 1052,
    "nhl_direct": 0,
    "links": 17,
+   "from_hockeydb": 0,
    "from_tables": 0
   },
   "del2": {
@@ -1208,6 +1230,7 @@
    "players": 67,
    "nhl_direct": 0,
    "links": 1,
+   "from_hockeydb": 0,
    "from_tables": 58
   },
   "qmjhl": {
@@ -1271,6 +1294,7 @@
    "players": 448,
    "nhl_direct": 0,
    "links": 10,
+   "from_hockeydb": 0,
    "from_tables": 286
   },
   "mhl": {
@@ -1304,6 +1328,7 @@
    "players": 219,
    "nhl_direct": 0,
    "links": 4,
+   "from_hockeydb": 0,
    "from_tables": 0
   },
   "u20-sm-sarja": {
@@ -1347,6 +1372,7 @@
    "players": 859,
    "nhl_direct": 0,
    "links": 6,
+   "from_hockeydb": 0,
    "from_tables": 568
   },
   "bchl": {
@@ -1415,6 +1441,7 @@
    "players": 806,
    "nhl_direct": 0,
    "links": 11,
+   "from_hockeydb": 0,
    "from_tables": 805
   },
   "hockeyettan": {
@@ -1438,6 +1465,7 @@
    "players": 39,
    "nhl_direct": 0,
    "links": 2,
+   "from_hockeydb": 0,
    "from_tables": 0
   },
   "u20-nationell": {
@@ -1481,6 +1509,7 @@
    "players": 645,
    "nhl_direct": 0,
    "links": 6,
+   "from_hockeydb": 0,
    "from_tables": 0
   },
   "czechia-u20": {
@@ -1509,6 +1538,7 @@
    "players": 81,
    "nhl_direct": 0,
    "links": 3,
+   "from_hockeydb": 0,
    "from_tables": 0
   },
   "ajhl": {
@@ -1567,6 +1597,7 @@
    "players": 679,
    "nhl_direct": 0,
    "links": 9,
+   "from_hockeydb": 0,
    "from_tables": 701
   },
   "suomi-sarja": {
@@ -1590,6 +1621,7 @@
    "players": 90,
    "nhl_direct": 0,
    "links": 2,
+   "from_hockeydb": 0,
    "from_tables": 100
   },
   "cchl": {
@@ -1648,6 +1680,7 @@
    "players": 288,
    "nhl_direct": 0,
    "links": 9,
+   "from_hockeydb": 0,
    "from_tables": 305
   },
   "ojhl": {
@@ -1696,6 +1729,7 @@
    "players": 394,
    "nhl_direct": 0,
    "links": 7,
+   "from_hockeydb": 0,
    "from_tables": 430
   },
   "sjhl": {
@@ -1754,6 +1788,7 @@
    "players": 595,
    "nhl_direct": 0,
    "links": 9,
+   "from_hockeydb": 0,
    "from_tables": 612
   },
   "u18-sm-sarja": {
@@ -1777,6 +1812,7 @@
    "players": 312,
    "nhl_direct": 0,
    "links": 2,
+   "from_hockeydb": 0,
    "from_tables": 270
   },
   "mjahl": {
@@ -1805,6 +1841,7 @@
    "players": 121,
    "nhl_direct": 0,
    "links": 3,
+   "from_hockeydb": 0,
    "from_tables": 168
   },
   "mjhl": {
@@ -1853,6 +1890,7 @@
    "players": 365,
    "nhl_direct": 0,
    "links": 7,
+   "from_hockeydb": 0,
    "from_tables": 401
   },
   "u18-nationell": {
@@ -1876,6 +1914,7 @@
    "players": 115,
    "nhl_direct": 0,
    "links": 2,
+   "from_hockeydb": 0,
    "from_tables": 0
   },
   "vijhl": {
@@ -1909,6 +1948,7 @@
    "players": 86,
    "nhl_direct": 0,
    "links": 4,
+   "from_hockeydb": 0,
    "from_tables": 122
   },
   "kijhl": {
@@ -1952,6 +1992,7 @@
    "players": 183,
    "nhl_direct": 0,
    "links": 6,
+   "from_hockeydb": 0,
    "from_tables": 201
   }
  }

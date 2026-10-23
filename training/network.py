@@ -26,6 +26,10 @@ Data (training/scrape.py):
   landings.jsonl   NHL career histories (exact ids): every pick 2000-2025 and every
                    NHL skater since 2000-01. These cover the leagues whose own
                    sites are blocked or missing (KHL, VHL, MHL, Slovakia, the WJC...).
+  hockeydb/*.csv   HockeyDB rosters (puckscrape.hockeydb) for the KHL, VHL, MHL,
+                   Slovakia and NAHL, whose own sites are blocked or missing, and
+                   the leagues their players move to and from. HockeyDB ids link
+                   stints exactly; only pairs with one of those five are used.
   tables/*.csv     league-website tables (puckscrape.leagues): the players who
                    never got an NHL id (AHL/ECHL lifers, Allsvenskan, Mestis,
                    U20 leagues...). Linked by name within a season, only between
@@ -138,6 +142,37 @@ def table_stints(landing, names):
     t = t[[(n, s, lg) not in known for n, s, lg in zip(t.name, t.season, t.league)]]
     t["player"] = "t" + t.system + ":" + t.name
     return t[["player", "season", "league", "gp", "pts"]]
+
+
+# HockeyDB codes (training/scrape.py) -> factor keys. Its pairs count only when
+# one side is a league HockeyDB is here for; the rest are already covered.
+HOCKEYDB = {"khl": "khl", "vhl": "vhl", "mhl": "mhl", "slovakia": "slovakia", "nahl": "nahl",
+            "czechia": "czechia", "liiga": "liiga", "shl": "shl", "nl": "nl", "del": "del",
+            "ushl": "ushl", "bchl": "bchl", "ajhl": "ajhl", "sjhl": "sjhl", "mjhl": "mjhl", "ojhl": "ojhl"}
+HOCKEYDB_TARGETS = {"khl", "vhl", "mhl", "slovakia", "nahl"}
+
+
+def hockeydb_stints(landing, names):
+    """HockeyDB rosters, one row per HockeyDB id, season and league (team splits
+    summed). Players with an NHL id are left to the landings."""
+    frames = []
+    for path in sorted((DATA / "hockeydb").glob("*.csv")):
+        code, y = path.stem.rsplit("_", 1)
+        if code not in HOCKEYDB or int(y) not in SEASONS:
+            continue
+        df = pd.read_csv(path, usecols=["pid", "player", "pos", "gp", "pts"])
+        frames.append(df[df.pos != "G"].assign(season=int(y), league=HOCKEYDB[code]))
+    if not frames:
+        return pd.DataFrame(columns=["player", "season", "league", "gp", "pts"])
+    h = pd.concat(frames, ignore_index=True)
+    h[["gp", "pts"]] = h[["gp", "pts"]].apply(pd.to_numeric, errors="coerce").fillna(0)
+    h["name"] = h.player.map(name_key)
+    lid = landing.merge(names[["player", "key"]], on="player")
+    known = set(zip(lid.key, lid.season))
+    h = h[[(n, y) not in known for n, y in zip(h.name, h.season)]]
+    h = h.groupby(["pid", "season", "league"], as_index=False)[["gp", "pts"]].sum()
+    h["player"] = "h" + h.pid.astype(str)
+    return h[["player", "season", "league", "gp", "pts"]]
 
 
 # ── Pairs and the solve ──────────────────────────────────────────────────────
@@ -258,8 +293,12 @@ def usable(g):
 def main():
     landing, names = landing_stints()
     tables = table_stints(landing, names)
-    stints = pd.concat([landing, tables], ignore_index=True)
+    hdb = hockeydb_stints(landing, names)
+    stints = pd.concat([landing, tables, hdb], ignore_index=True)
+    stints[["gp", "pts"]] = stints[["gp", "pts"]].astype(float)
     pairs = pair_rows(stints)
+    from_hdb = pairs.player.str[0] == "h"
+    pairs = pairs[~from_hdb | pairs.league_a.isin(HOCKEYDB_TARGETS) | pairs.league_b.isin(HOCKEYDB_TARGETS)]
     g, per = usable(pool(pairs))
     factors = solve(g)
     wls = solve_wls(g)
@@ -296,6 +335,8 @@ def main():
                    "paths": [[c, round(sh, 4), round(v, 6)] for c, sh, v in paths.get(lg, [])],
                    "players": int(per.get(lg, 0)),
                    "nhl_direct": direct_n.get(lg, 0), "links": int(len(lg_pairs)),
+                   "from_hockeydb": int(pairs[(pairs.player.str[0] == "h") &
+                                              ((pairs.league_a == lg) | (pairs.league_b == lg))].shape[0]),
                    "from_tables": int(pairs[(pairs.player.str[0] == "t") &
                                             ((pairs.league_a == lg) | (pairs.league_b == lg))].shape[0])}
     meta = {"seasons": [SEASONS.start, SEASONS.stop - 1], "min_gp": MIN_GP, "min_pair": MIN_PAIR,
@@ -323,14 +364,15 @@ def write_report(meta, out, g):
              "the factor then uses every connection a league has. `WLS` is a log-space least-squares solve over the same "
              "pairs, as a cross-check. `±` is the bootstrap standard error of the log factor (0.05 ≈ ±5%). "
              "`Players` counts shared player-seasons across the league's pairs, `NHL direct` those shared with the NHL, "
-             "`from sites` those that came from league-website tables rather than NHL career histories.", "",
-             "| # | League | Factor | ± | 1st | WLS | Old | Players | NHL direct | Pairs | From sites | Biggest paths (share → NHLe via it) |",
-             "|---|---|---|---|---|---|---|---|---|---|---|---|"]
+             "`from sites` those that came from league-website tables and `from HockeyDB` those from HockeyDB rosters, "
+             "rather than NHL career histories.", "",
+             "| # | League | Factor | ± | 1st | WLS | Old | Players | NHL direct | Pairs | From sites | From HockeyDB | Biggest paths (share → NHLe via it) |",
+             "|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
     for lg, r in out.items():
         o = f"{old[lg]:.3f}" if lg in old else "–"
         top = ", ".join(f"{c} {sh:.0%} → {v:.3f}" for c, sh, v in r["paths"][:4])
         lines.append(f"| {r['solved']} | {lg} | {r['factor']:.3f} | {r['log_se']:.3f} | {r['first_pass']:.3f} | {r['wls']:.3f} | {o} | {r['players']:,} | "
-                     f"{r['nhl_direct']:,} | {r['links']} | {r['from_tables']:,} | {top} |")
+                     f"{r['nhl_direct']:,} | {r['links']} | {r['from_tables']:,} | {r['from_hockeydb']:,} | {top} |")
     lines += ["", "Re-run with `python training/scrape.py`, `python training/network.py`, then `python training/fit.py --write`.", ""]
     (HERE / "NETWORK.md").write_text("\n".join(lines), encoding="utf-8")
 

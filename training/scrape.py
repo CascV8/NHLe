@@ -8,6 +8,8 @@ Scrape the training data for the NHLe models with puckscrape.
   data/moneypuck.csv      MoneyPuck skater season summaries (star outcome metric)
   data/tables/*.csv       league-website skater tables (ps.leagues), for the network
                           NHLe factors in training/network.py
+  data/hockeydb/*.csv     HockeyDB rosters (ps.hockeydb) for the KHL, VHL, MHL,
+                          Slovakia and NAHL and the leagues they trade players with
 
 Elite Prospects would be the natural source for prospect stats, but it answers
 puckscrape with 403s. The NHL landing pages carry the same league-by-league
@@ -109,6 +111,37 @@ def scrape_tables(seasons):
                 log.info("tables %s %d %s: %d skaters", code, y, phase, len(df))
 
 
+# HockeyDB rosters for the leagues with no usable site of their own (the KHL,
+# VHL, MHL, Slovakia, the NAHL) and the leagues their players move to and from
+# mid-season. HockeyDB ids link a player's stints exactly.
+HOCKEYDB_TARGETS = ["khl", "vhl", "mhl", "slovakia", "nahl"]
+HOCKEYDB_CONNECTORS = ["czechia", "liiga", "shl", "nl", "del",                  # Europe
+                       "ushl", "bchl", "ajhl", "sjhl", "mjhl", "ojhl"]          # NAHL moves
+
+
+def scrape_hockeydb(seasons):
+    out = DATA / "hockeydb"
+    out.mkdir(exist_ok=True)
+    for code in HOCKEYDB_TARGETS + HOCKEYDB_CONNECTORS:
+        for y in seasons:
+            path = out / f"{code}_{y}.csv"
+            if path.exists():
+                continue
+            try:
+                df = ps.hockeydb.skaters(code, y)
+            except ValueError as e:   # no such season on HockeyDB
+                log.info("hockeydb %s %d: %s", code, y, str(e)[:80])
+                continue
+            except Exception as e:    # refused (403 / Cloudflare challenge): stop, don't keep knocking
+                log.warning("hockeydb %s %d: %s; stopping, re-run later to resume", code, y, str(e)[:80])
+                return
+            if df.empty:
+                log.warning("hockeydb %s %d: empty, not cached", code, y)
+                continue
+            df.to_csv(path, index=False)
+            log.info("hockeydb %s %d: %d rows", code, y, len(df))
+
+
 def main():
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
@@ -127,6 +160,7 @@ def main():
     scrape_landings(ids + extra, DATA / "landings.jsonl")
     if "--no-tables" not in sys.argv:
         scrape_tables(TABLE_SEASONS)
+        scrape_hockeydb(TABLE_SEASONS)
 
     mp = ps.moneypuck.skaters(list(range(2008, 2026)))
     mp.to_csv(DATA / "moneypuck.csv", index=False)

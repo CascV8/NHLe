@@ -10,18 +10,13 @@
 <style>
 /* Same tokens as the index and the microstat cards; the outcome colours are the NHLe graphic's. */
 :root {
-  --bg: #e9eef2; --surface: #ffffff; --ink: #0f1a24; --muted: #566573; --line: #d3dce3; --track: #e3e9ee;
-  --accent: #b3122e;
-  --star: #ffc400; --nhler: #00c01e; --bust: #d9d9d9; --nhle: #3d9ee8;
+  --bg: #0b1117; --surface: #131c24; --ink: #e5ecf1; --muted: #8d9ba7; --line: #24323e; --track: #1e2a35;
+  --accent: #f0566c;
+  --star: #f2bb18; --nhler: #1fb83a; --bust: #34424f; --nhle: #5bb8f5;
   --display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
   --body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  color-scheme: dark;
 }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
-  --bg: #0b1117; --surface: #131c24; --ink: #e5ecf1; --muted: #8d9ba7; --line: #24323e; --track: #1e2a35;
-  --accent: #f0566c; --star: #f2bb18; --nhler: #1fb83a; --bust: #34424f; --nhle: #5bb8f5; color-scheme: dark } }
-:root[data-theme="dark"] {
-  --bg: #0b1117; --surface: #131c24; --ink: #e5ecf1; --muted: #8d9ba7; --line: #24323e; --track: #1e2a35;
-  --accent: #f0566c; --star: #f2bb18; --nhler: #1fb83a; --bust: #34424f; --nhle: #5bb8f5; color-scheme: dark }
 
 * { box-sizing: border-box }
 [hidden] { display: none !important; }
@@ -123,12 +118,11 @@ tbody tr:hover { background: var(--track); }
   font: 700 1rem/1 var(--display); font-variant-numeric: tabular-nums; }
 .lg { position: absolute; bottom: 6px; transform: translateX(-50%); max-width: 13.5%; text-align: center; font: 600 .72rem/1.15 var(--display);
   letter-spacing: .05em; text-transform: uppercase; color: var(--muted); overflow-wrap: anywhere; }
-/* League logos are drawn transparent, straight on the card. Dark single-colour marks (logos.json) are inverted on the
-   dark theme so they stay visible. */
+/* League logos are drawn transparent, straight on the card. The site is dark-only, so dark single-colour marks
+   (logos.json) are always inverted to stay visible. */
 .lg.logo { display: grid; place-items: center; height: 34px; width: 64px; max-width: 13.5%; }
 .lg.logo img { display: block; height: 30px; width: 100%; object-fit: contain; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .lg.logo img.inv { filter: invert(1); } }
-:root[data-theme="dark"] .lg.logo img.inv { filter: invert(1); }
+.lg.logo img.inv { filter: invert(1); }
 @media (max-width: 560px) { .lg.logo { height: 28px; } .lg.logo img { height: 24px; } }
 .line .none { position: absolute; top: 45%; transform: translateX(-50%); color: var(--muted); }
 .line .ax { position: absolute; left: 0; top: 4px; font-size: .7rem; color: var(--muted); }

@@ -68,6 +68,10 @@ td { padding: 6px 8px; text-align: right; border-bottom: 1px solid var(--line); 
 th.l, td.l { text-align: left; }
 tr:last-child td { border-bottom: 0; }
 tbody tr:hover { background: var(--track); }
+/* Draft class: a divider row where each round starts (pick order only). */
+tr.round td { font: 600 .74rem var(--display); letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
+  text-align: left; background: var(--track); padding: 5px 8px; position: sticky; top: 33px; }
+tr.round:hover { background: none; }
 
 /* The card: header, outcome bars per draft-relative season, the season labels, then the NHLe line. */
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; margin-bottom: 8px; }
@@ -158,6 +162,10 @@ tbody tr:hover { background: var(--track); }
         <button type="button" data-tab="league" aria-pressed="false" id="league-tab" hidden>League</button>
       </div>
       <label for="draft-year" data-for="draft">Draft <select id="draft-year"></select></label>
+      <label for="draft-sort" data-for="draft">Sort <select id="draft-sort">
+        <option value="pick">Pick</option><option value="star">Star %</option><option value="nhler">NHLer %</option>
+      </select></label>
+      <span class="dim" id="draft-progress" data-for="draft"></span>
       <label for="league" data-for="league" hidden>League <select id="league"></select></label>
       <label for="league-season" data-for="league" hidden>Season <select id="league-season"></select></label>
     </div>
@@ -407,17 +415,61 @@ let tab = "draft";
 const row = cells => `<tr>${cells.map(([v, l]) => `<td class="${l ? "l" : ""}">${v}</td>`).join("")}</tr>`;
 const pickBtn = p => `<button type="button" class="pick" data-src="${p.src}" data-id="${esc(p.id)}">${esc(p.name)}</button>`;
 
+// Draft-class outcomes: each pick's card, built the same way as the one you open, and its headline
+// (latest rated) season. Loaded only when sorting by outcome, six players at a time, and kept.
+const outcomes = new Map();   // player id -> { star, nhler, label } (null values: no rated season)
+let draftList = [], draftToken = 0;
+async function loadOutcomes(list, token) {
+  const todo = list.filter(p => !outcomes.has(p.id));
+  let done = list.length - todo.length;
+  const show = () => { $("draft-progress").textContent = done < list.length ? `Building cards… ${done}/${list.length}` : ""; };
+  show();
+  const work = async () => {
+    for (let p; (p = todo.shift());) {
+      try {
+        const c = buildCard(SPEC, await api("player", { src: p.src, id: p.id }), CURRENT);
+        outcomes.set(p.id, { star: c.latest?.star ?? null, nhler: c.latest?.nhler ?? null, label: c.latest?.label ?? "" });
+      } catch (e) { outcomes.set(p.id, { star: null, nhler: null, label: "" }); }
+      done++;
+      if (token !== draftToken) return;
+      show();
+      if (tab === "draft") renderDraft();
+    }
+  };
+  await Promise.all(Array.from({ length: 6 }, work));
+}
+function renderDraft() {
+  const sort = $("draft-sort").value, byOutcome = sort !== "pick";
+  const key = p => outcomes.get(p.id)?.[sort] ?? -1;   // not loaded yet / no rated season: last
+  const list = byOutcome ? [...draftList].sort((a, b) => key(b) - key(a) || a.overall - b.overall) : draftList;
+  $("browse-head").innerHTML = `<tr><th>#</th><th class="l">Player</th><th class="l">Pos</th><th class="l">Team</th>` +
+    `<th class="l">Drafted from</th><th class="l">Nation</th>${byOutcome ? "<th>Star</th><th>NHLer</th><th class=\"l\">Season</th>" : ""}</tr>`;
+  const cols = byOutcome ? 9 : 6;
+  let round = null;
+  $("browse-rows").innerHTML = list.map(p => {
+    const divider = !byOutcome && p.round !== round ? `<tr class="round"><td colspan="${cols}">Round ${(round = p.round)}</td></tr>` : "";
+    const o = outcomes.get(p.id);
+    const extra = !byOutcome ? [] : !o ? [["…"], ["…"], ["", 1]]
+      : o.nhler == null ? [["–"], ["–"], ['<span class="dim">no rated season</span>', 1]]
+      : [[`<b>${pct(o.star)}</b>`], [pct(o.nhler)], [`<span class="dim">${esc(o.label)}</span>`, 1]];
+    return divider + row([[p.overall], [pickBtn(p), 1], [esc(p.pos), 1], [esc(p.team), 1],
+      [`${esc(p.club)} <span class="dim">${esc(p.league)}</span>`, 1], [esc(p.nation), 1], ...extra]);
+  }).join("") || `<tr><td class="l msg">No picks for that year.</td></tr>`;
+}
+
 async function browse() {
+  if (tab !== "draft") draftToken++;   // stop filling in a draft class we've left
   for (const b of document.querySelectorAll("[data-tab]")) b.setAttribute("aria-pressed", b.dataset.tab === tab);
   for (const l of document.querySelectorAll("[data-for]")) l.hidden = l.dataset.for !== tab;
   $("browse-rows").innerHTML = `<tr><td class="l msg">Loading…</td></tr>`;
   try {
     if (tab === "draft") {
-      const list = await api("draft", { year: $("draft-year").value });
-      $("browse-head").innerHTML = `<tr><th>#</th><th>Rd</th><th class="l">Player</th><th class="l">Pos</th><th class="l">Team</th><th class="l">Drafted from</th><th class="l">Nation</th></tr>`;
-      $("browse-rows").innerHTML = list.map(p => row([[p.overall], [p.round], [pickBtn(p), 1], [esc(p.pos), 1], [esc(p.team), 1],
-        [`${esc(p.club)} <span class="dim">${esc(p.league)}</span>`, 1], [esc(p.nation), 1]])).join("")
-        || `<tr><td class="l msg">No picks for that year.</td></tr>`;
+      const token = ++draftToken;
+      draftList = await api("draft", { year: $("draft-year").value });
+      if (token !== draftToken) return;
+      $("draft-progress").textContent = "";
+      renderDraft();
+      if ($("draft-sort").value !== "pick") loadOutcomes(draftList, token);
     } else {
       const list = await api("league", { league: $("league").value, season: $("league-season").value });
       $("browse-head").innerHTML = `<tr><th class="l">Player</th><th class="l">Pos</th><th class="l">Born</th><th class="l">Team</th><th>GP</th><th>G</th><th>A</th><th>PTS</th></tr>`;
@@ -434,6 +486,10 @@ document.addEventListener("click", e => {
   if (b?.classList.contains("pick")) choose({ src: b.dataset.src, id: b.dataset.id });
 });
 for (const id of ["draft-year", "league", "league-season"]) $(id).addEventListener("change", browse);
+$("draft-sort").addEventListener("change", () => {
+  renderDraft();
+  if ($("draft-sort").value !== "pick") loadOutcomes(draftList, draftToken);
+});
 
 // ── Start ──────────────────────────────────────────────────────────────────────────────────────
 function fromUrl() {
@@ -459,10 +515,10 @@ $("notes").innerHTML = `
     ${SPEC.star_thresholds.F.toFixed(1)}+ for forwards (${esc(SPEC.star_examples.F.slice(0, 3).join(", "))}) and
     ${SPEC.star_thresholds.D.toFixed(1)}+ for defensemen (${esc(SPEC.star_examples.D.slice(0, 3).join(", "))}).
     Fit on the ${SPEC.classes[0]}-${SPEC.classes[1]} draft classes with Neil Paine's GAR.</p>
-  <p>Leagues without a factor (minor hockey, U18 leagues, the ECHL) are listed but left out. A season is rated only if it's
+  <p>Leagues without a factor (minor hockey, most U18 and high-school leagues) are listed but left out. A season is rated only if it's
     like the ones the models learned from: ${SPEC.min_gp}+ games in rated leagues, and at least half of the season's games in
     them.
-    Undrafted players are placed by their first eligible draft (18 by September 15).</p>
+    Every player is placed by his first eligible draft, drafted or not (an overage pick's draft year is the year he first could have been picked) (18 by September 15).</p>
   <p id="src-note"></p>`;
 
 api("sources", {}).then(s => { SOURCES = s; }).catch(() => {}).finally(() => {

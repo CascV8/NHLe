@@ -33,13 +33,13 @@ import sys
 # For the WJC-20, PLAYED and PER_PTS82 each also move by *_WJC_AGE per year of
 # age at the tournament (Jan 1) away from WJC_AGE_CENTER: making an under-20
 # team at 17 says more than making it at 19.
-NHLER_INTERCEPT = -3.138515
-NHLER_COEF      =  0.183679
+NHLER_INTERCEPT = -3.138067
+NHLER_COEF      =  0.183684
 NHLER_WJC       = {}
 NHLER_WJC_AGE   = {}
 
-STAR_INTERCEPT  = -5.429385
-STAR_COEF       =  0.177978
+STAR_INTERCEPT  = -5.427583
+STAR_COEF       =  0.177896
 STAR_WJC        = {}
 STAR_WJC_AGE    = {}
 
@@ -55,7 +55,7 @@ LEAGUE_FACTORS = {
     "czechia":       0.437843,
     "del":           0.422002,
     "liiga":         0.407721,
-    "ahl":           0.384524,
+    "ahl":           0.384527,
     "vhl":           0.238320,
     "icehl":         0.229341,
     "allsvenskan":   0.227353,
@@ -65,26 +65,28 @@ LEAGUE_FACTORS = {
     "echl":          0.135892,
     "mestis":        0.133372,
     "del2":          0.127676,
-    "ohl":           0.126389,
     "sl":            0.123086,
-    "ushl":          0.122858,
-    "whl":           0.118800,
-    "qmjhl":         0.111942,
+    "ushl":          0.123065,
+    "ohl":           0.122934,
+    "whl":           0.119090,
+    "qmjhl":         0.113687,
     "mhl":           0.089900,
     "u20-sm-sarja":  0.077952,
     "hockeyettan":   0.077522,
-    "bchl":          0.073194,
+    "bchl":          0.072894,
     "u20-nationell": 0.072459,
     "czechia-u20":   0.055844,
     "nahl":          0.052288,
-    "ajhl":          0.047283,
-    "cchl":          0.043709,
-    "sjhl":          0.039150,
-    "ojhl":          0.037410,
+    "ajhl":          0.047404,
+    "cchl":          0.046672,
+    "ojhl":          0.041624,
+    "sjhl":          0.039290,
+    "mjahl":         0.031389,
     "u18-sm-sarja":  0.031263,
-    "mjahl":         0.030119,
-    "mjhl":          0.029649,
+    "mjhl":          0.030221,
+    "gohl":          0.028138,
     "u18-nationell": 0.026934,
+    "csshl":         0.022830,
     "kijhl":         0.013706,
 }
 TOURNAMENTS = ()

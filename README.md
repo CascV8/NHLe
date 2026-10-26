@@ -53,7 +53,7 @@ Or skip the prompts if you already have an NHLe pts/82 (no World Juniors):
 python Forwards/fwd-d0.py --pts82 25
 ```
 
-Type `leagues` at any league prompt to list the built-in NHLe factors (40 leagues, from
+Type `leagues` at any league prompt to list the built-in NHLe factors (42 leagues, from
 [`training/NETWORK.md`](training/NETWORK.md)). You can also enter a custom factor between 0 and 1
 in place of a league name.
 

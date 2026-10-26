@@ -518,7 +518,7 @@ $("notes").innerHTML = `
   <p>Leagues without a factor (minor hockey, most U18 and high-school leagues) are listed but left out. A season is rated only if it's
     like the ones the models learned from: ${SPEC.min_gp}+ games in rated leagues, and at least half of the season's games in
     them.
-    Every player is placed by his first eligible draft, drafted or not (an overage pick's draft year is the year he first could have been picked) (18 by September 15).</p>
+    Every player is placed by their first eligible draft (18 by September 15), drafted or not: an overage pick's draft year is the year they could first have been picked.</p>
   <p id="src-note"></p>`;
 
 api("sources", {}).then(s => { SOURCES = s; }).catch(() => {}).finally(() => {

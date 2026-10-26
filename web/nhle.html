@@ -72,6 +72,9 @@ tbody tr:hover { background: var(--track); }
 tr.round td { font: 600 .74rem var(--display); letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
   text-align: left; background: var(--track); padding: 5px 8px; position: sticky; top: 33px; }
 tr.round:hover { background: none; }
+/* Star and NHLer cells: the card's yellow and green, deeper the likelier (shade set inline). */
+td.pct { font-weight: 700; min-width: 3.2em; }
+td.pct.dark { color: var(--bg); }
 
 /* The card: header, outcome bars per draft-relative season, the season labels, then the NHLe line. */
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; margin-bottom: 8px; }
@@ -416,7 +419,7 @@ const row = cells => `<tr>${cells.map(([v, l]) => `<td class="${l ? "l" : ""}">$
 const pickBtn = p => `<button type="button" class="pick" data-src="${p.src}" data-id="${esc(p.id)}">${esc(p.name)}</button>`;
 
 // Draft-class outcomes: each pick's card, built the same way as the one you open, and its headline
-// (latest rated) season. Loaded only when sorting by outcome, six players at a time, and kept.
+// (latest rated) season. Loaded for every class shown, six players at a time, and kept.
 const outcomes = new Map();   // player id -> { star, nhler, label } (null values: no rated season)
 let draftList = [], draftToken = 0;
 async function loadOutcomes(list, token) {
@@ -438,22 +441,29 @@ async function loadOutcomes(list, token) {
   };
   await Promise.all(Array.from({ length: 6 }, work));
 }
+// A Star / NHLer cell shaded by its chance: the colour's strength runs from faint at 0% to full at 100%.
+function pctCell(p, color) {
+  if (p == null) return '<td class="pct">–</td>';
+  const strength = Math.round(12 + 88 * p);
+  return `<td class="pct${p >= 0.55 ? " dark" : ""}" style="background:color-mix(in srgb, var(${color}) ${strength}%, transparent)">${pct(p)}</td>`;
+}
+
 function renderDraft() {
   const sort = $("draft-sort").value, byOutcome = sort !== "pick";
   const key = p => outcomes.get(p.id)?.[sort] ?? -1;   // not loaded yet / no rated season: last
   const list = byOutcome ? [...draftList].sort((a, b) => key(b) - key(a) || a.overall - b.overall) : draftList;
   $("browse-head").innerHTML = `<tr><th>#</th><th class="l">Player</th><th class="l">Pos</th><th class="l">Team</th>` +
-    `<th class="l">Drafted from</th><th class="l">Nation</th>${byOutcome ? "<th>Star</th><th>NHLer</th><th class=\"l\">Season</th>" : ""}</tr>`;
-  const cols = byOutcome ? 9 : 6;
+    `<th class="l">Drafted from</th><th class="l">Nation</th><th>Star</th><th>NHLer</th><th class="l">Season</th></tr>`;
+  const cols = 9;
   let round = null;
   $("browse-rows").innerHTML = list.map(p => {
     const divider = !byOutcome && p.round !== round ? `<tr class="round"><td colspan="${cols}">Round ${(round = p.round)}</td></tr>` : "";
     const o = outcomes.get(p.id);
-    const extra = !byOutcome ? [] : !o ? [["…"], ["…"], ["", 1]]
-      : o.nhler == null ? [["–"], ["–"], ['<span class="dim">no rated season</span>', 1]]
-      : [[`<b>${pct(o.star)}</b>`], [pct(o.nhler)], [`<span class="dim">${esc(o.label)}</span>`, 1]];
+    const outcome = !o ? '<td class="pct dim">…</td><td class="pct dim">…</td><td class="l"></td>'
+      : o.nhler == null ? '<td class="pct">–</td><td class="pct">–</td><td class="l dim">no rated season</td>'
+      : pctCell(o.star, "--star") + pctCell(o.nhler, "--nhler") + `<td class="l dim">${esc(o.label)}</td>`;
     return divider + row([[p.overall], [pickBtn(p), 1], [esc(p.pos), 1], [esc(p.team), 1],
-      [`${esc(p.club)} <span class="dim">${esc(p.league)}</span>`, 1], [esc(p.nation), 1], ...extra]);
+      [`${esc(p.club)} <span class="dim">${esc(p.league)}</span>`, 1], [esc(p.nation), 1]]).replace("</tr>", outcome + "</tr>");
   }).join("") || `<tr><td class="l msg">No picks for that year.</td></tr>`;
 }
 
@@ -469,7 +479,7 @@ async function browse() {
       if (token !== draftToken) return;
       $("draft-progress").textContent = "";
       renderDraft();
-      if ($("draft-sort").value !== "pick") loadOutcomes(draftList, token);
+      loadOutcomes(draftList, token);
     } else {
       const list = await api("league", { league: $("league").value, season: $("league-season").value });
       $("browse-head").innerHTML = `<tr><th class="l">Player</th><th class="l">Pos</th><th class="l">Born</th><th class="l">Team</th><th>GP</th><th>G</th><th>A</th><th>PTS</th></tr>`;
@@ -486,10 +496,7 @@ document.addEventListener("click", e => {
   if (b?.classList.contains("pick")) choose({ src: b.dataset.src, id: b.dataset.id });
 });
 for (const id of ["draft-year", "league", "league-season"]) $(id).addEventListener("change", browse);
-$("draft-sort").addEventListener("change", () => {
-  renderDraft();
-  if ($("draft-sort").value !== "pick") loadOutcomes(draftList, draftToken);
-});
+$("draft-sort").addEventListener("change", renderDraft);
 
 // ── Start ──────────────────────────────────────────────────────────────────────────────────────
 function fromUrl() {

@@ -28,18 +28,20 @@ import math
 import sys
 
 # ── Model coefficients ── fit by training/fit.py, see training/REPORT.md ─────
-# log-odds = INTERCEPT + COEF * pts/82, plus for each World Juniors played:
+# log-odds = INTERCEPT + COEF * shape(pts/82), plus for each World Juniors played:
 #            PLAYED + PER_PTS82 * (that tournament's NHLe pts/82)
 # For the WJC-20, PLAYED and PER_PTS82 each also move by *_WJC_AGE per year of
 # age at the tournament (Jan 1) away from WJC_AGE_CENTER: making an under-20
 # team at 17 says more than making it at 19.
-NHLER_INTERCEPT = -3.138067
-NHLER_COEF      =  0.183684
+NHLER_INTERCEPT = -6.130075
+NHLER_COEF      =  2.156358
+NHLER_SHAPE     = 'log'   # COEF multiplies shape(pts/82): "linear", "log" (log(1+x)) or "sqrt"
 NHLER_WJC       = {}
 NHLER_WJC_AGE   = {}
 
-STAR_INTERCEPT  = -5.427583
-STAR_COEF       =  0.177896
+STAR_INTERCEPT  = -8.290759
+STAR_COEF       =  1.500196
+STAR_SHAPE      = 'sqrt'
 STAR_WJC        = {}
 STAR_WJC_AGE    = {}
 
@@ -131,13 +133,18 @@ def wjc_log_odds(terms, age_terms, wjc, age=None):
     return total
 
 
+def shape(pts82, kind):
+    x = max(pts82, 0.0)
+    return {"linear": x, "log": math.log1p(x), "sqrt": math.sqrt(x)}[kind]
+
+
 def p_nhler(pts82, wjc=None, age=None):
-    lo = NHLER_INTERCEPT + NHLER_COEF * pts82 + wjc_log_odds(NHLER_WJC, NHLER_WJC_AGE, wjc, age)
+    lo = NHLER_INTERCEPT + NHLER_COEF * shape(pts82, NHLER_SHAPE) + wjc_log_odds(NHLER_WJC, NHLER_WJC_AGE, wjc, age)
     return 1.0 / (1.0 + math.exp(-lo))
 
 
 def p_star(pts82, wjc=None, age=None):
-    lo = STAR_INTERCEPT + STAR_COEF * pts82 + wjc_log_odds(STAR_WJC, STAR_WJC_AGE, wjc, age)
+    lo = STAR_INTERCEPT + STAR_COEF * shape(pts82, STAR_SHAPE) + wjc_log_odds(STAR_WJC, STAR_WJC_AGE, wjc, age)
     return min(1.0 / (1.0 + math.exp(-lo)), p_nhler(pts82, wjc, age))
 
 

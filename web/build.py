@@ -64,6 +64,8 @@ def model_spec():
             "script": script,
             "nhler": [m["nhler"]["intercept"], m["nhler"]["coef"]],
             "star": [m["star"]["intercept"], m["star"]["coef"]],
+            # The curve each coefficient multiplies: "linear" pts/82, "log" log(1 + pts/82) or "sqrt"
+            "shape": {"nhler": m["nhler"].get("shape", "linear"), "star": m["star"].get("shape", "linear")},
             # World Juniors terms: {tournament: [played, per NHLe pts/82 there]}
             "wjc": {"nhler": m["nhler"].get("wjc", {}), "star": m["star"].get("wjc", {})},
             # WJC-20 slopes per year of age at the tournament, from fit["WJC_AGE_CENTER"]
@@ -86,7 +88,7 @@ def model_spec():
         "events": sorted({e.lower() for e in fit["EVENTS"]} | EP_EVENTS),
         "min_gp": fit["MIN_GP"],
         "min_coverage": fit["MIN_COVERAGE"],
-        "po_weight": fit["PO_WEIGHT"],
+        "po_weight": coef.get("po_weight", fit["PO_WEIGHT"]),   # per position
         "wjc_age_center": fit["WJC_AGE_CENTER"],
         "star_top": round((1 - fit["STAR_PCT"]) * 100),
         "star_thresholds": coef["star_thresholds"],

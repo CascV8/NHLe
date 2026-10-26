@@ -7,6 +7,9 @@ scraped by training/scrape.py and the league factors from training/network.py.
                                    # training/model_template.py.in
 
 Sample:   NHL draft picks from CLASSES, by draft-listed position (C/L/R = F, D = D).
+Seasons:  Relative to each player's FIRST ELIGIBLE draft (18 by September 15), not
+          the year he was picked: an overage pick's age-20 season is his D+2, not
+          his "draft year". About a fifth of picks are overagers.
 Factors:  network NHLe (training/factors.json): every league's points per NHL
           point, solved jointly from same-season crossovers (training/NETWORK.md).
 Feature:  NHLe pts/82 for the season N years from the draft: regular season +
@@ -29,7 +32,10 @@ Outcomes: NHL player = 200+ NHL regular-season games (through the latest season)
           24% of NHL skaters at the position with 200+ GP and a season since
           2008-09 (the Pareto cut). GAR is Neil Paine's (data/neil-paine, MIT) through 2024-25;
           later seasons are estimated from MoneyPuck stats (see gar_seasons).
-Model:    log-odds = INTERCEPT + COEF * pts82 + sum over WJCs (PLAYED + PER_PTS82 * wjc82),
+Model:    log-odds = INTERCEPT + COEF * shape(pts82) + sum over WJCs (PLAYED + PER_PTS82 * wjc82),
+          shape = pts82, log(1 + pts82) or sqrt(pts82), picked per model and
+          outcome by cross-validated log loss (a straight line in raw pts82
+          under-rates 10-25 NHLe seasons),
           with WJC-20's PLAYED and PER_PTS82 each + slope * (age - 19), for each
           outcome separately.
 """
@@ -59,8 +65,10 @@ STAR_PCT = 0.76                # top 24%: the Pareto cut in "What's a point wort
 WJC_RIDGE = 1.0                # L2 penalty on the WJC terms: a N(0, 1) prior on PLAYED and
 WJC_SCALE = 20.0               # on PER_PTS82 per 20 NHLe pts/82 (about the spread of WJC scoring)
 WJC_AGE_CENTER = 19.0          # WJC-20 terms are a line in age at the tournament, centred here
-PO_WEIGHT = 1.25               # a playoff game's weight in pts/82: best of PO_SWEEP (see po_sweep.json)
+# A playoff game's weight in pts/82, per position: best of PO_SWEEP (see po_sweep.json)
+PO_WEIGHT = {"F": 1.5, "D": 1.25}
 PO_SWEEP = [1.0, 1.25, 1.5, 2.0, 2.5, 3.0]
+SHAPES = ("linear", "log", "sqrt")
 MAX_LOG_SE = 0.25              # leagues whose factor is less certain than ~±28% stay out of the scripts
 
 # Scripts per (position, season relative to draft year) and the tournaments
@@ -248,6 +256,18 @@ def star_thresholds(seasons):
 
 # ── Prospect features ─────────────────────────────────────────────────────────
 
+def first_eligible(birth):
+    """First NHL draft a player is eligible for: 18 by September 15 of the draft year."""
+    b = pd.to_datetime(birth, errors="coerce")
+    late = (b.dt.month > 9) | ((b.dt.month == 9) & (b.dt.day > 15))
+    return b.dt.year + 18 + late.astype(float)
+
+
+def shape(x, kind):
+    x = np.maximum(np.asarray(x, float), 0)
+    return {"linear": x, "log": np.log1p(x), "sqrt": np.sqrt(x)}[kind]
+
+
 def player_seasons():
     """Draft picks, their stints (playerId, season end year, kind, league key, gp,
     pts) in every league with a key, and their league games for the coverage check."""
@@ -255,6 +275,7 @@ def player_seasons():
     draft["playerId"] = draft.playerId.astype(int)
     draft = draft[draft.draftYear.isin(CLASSES)].copy()
     draft["pos"] = np.where(draft.position == "D", "D", "F")
+    draft["baseYear"] = first_eligible(draft.birthDate).fillna(draft.draftYear).astype(int)
     ids = set(draft.playerId)
 
     stints, cover, nhl_gp = [], [], {}
@@ -285,18 +306,18 @@ def player_seasons():
     return draft, stints, cover
 
 
-def model_sample(d, stints, cover, rel, tourn, factors, po_weight=PO_WEIGHT):
+def model_sample(d, stints, cover, rel, tourn, factors, po_weight=1.0):
     """One row per pick with a usable season: club pts82 (x), reg GP, and per
     tournament its raw points and games."""
-    st = stints.merge(d[["playerId", "draftYear"]])
-    st = st[st.end - st.draftYear == rel]
+    st = stints.merge(d[["playerId", "baseYear"]])
+    st = st[st.end - st.baseYear == rel]
     club = st[st.kind.isin(["reg", "po"]) & st.league.isin(factors)]
     w = np.where(club.kind == "po", po_weight, 1.0)
     agg = club.assign(nhle=club.pts * club.league.map(factors) * w, gp=club.gp * w).groupby("playerId").agg(
         nhle=("nhle", "sum"), gp=("gp", "sum"))
     reg_gp = club[club.kind == "reg"].groupby("playerId").gp.sum().rename("reg_gp")
-    cv = cover.merge(d[["playerId", "draftYear"]])
-    cv = cv[cv.end - cv.draftYear == rel]
+    cv = cover.merge(d[["playerId", "baseYear"]])
+    cv = cv[cv.end - cv.baseYear == rel]
     all_gp = cv.groupby("playerId").gp.sum().rename("all_gp")
     rated_gp = cv[cv.league.isin(factors)].groupby("playerId").gp.sum().rename("rated_gp")
     sample = d.set_index("playerId").join(agg, how="inner").join(reg_gp).join(all_gp).join(rated_gp)
@@ -304,7 +325,7 @@ def model_sample(d, stints, cover, rel, tourn, factors, po_weight=PO_WEIGHT):
     sample["x"] = sample.nhle / sample.gp * 82
     # Age on January 1 of the season, i.e. at the World Juniors
     born = pd.to_datetime(sample.birthDate, errors="coerce")
-    jan1 = pd.to_datetime((sample.draftYear + rel).astype(int).astype(str) + "-01-01")
+    jan1 = pd.to_datetime((sample.baseYear + rel).astype(int).astype(str) + "-01-01")
     sample["wjc_age"] = ((jan1 - born).dt.days / 365.25).fillna(18.0 + rel - 0.5)
     for t in sorted(tourn):
         w = st[st.kind == t].groupby("playerId")[["pts", "gp"]].sum()
@@ -313,9 +334,9 @@ def model_sample(d, stints, cover, rel, tourn, factors, po_weight=PO_WEIGHT):
     return sample, int(cv.playerId.nunique())
 
 
-def design(sample, tourn, factors):
-    """Columns: 1, pts82, then per tournament PLAYED and NHLe pts/82 there."""
-    cols = [np.ones(len(sample)), sample.x.to_numpy()]
+def design(sample, tourn, factors, kind="linear"):
+    """Columns: 1, shape(pts82), then per tournament PLAYED and NHLe pts/82 there."""
+    cols = [np.ones(len(sample)), shape(sample.x, kind)]
     for t in sorted(tourn):
         gp = sample[f"{t}_gp"].to_numpy()
         played = (gp > 0).astype(float)
@@ -337,11 +358,11 @@ def wjc20_cols(sample, factors):
 WJC20_RIDGE = [WJC_RIDGE, WJC_RIDGE * WJC_SCALE ** 2, WJC_RIDGE, WJC_RIDGE * WJC_SCALE ** 2]
 
 
-def joint_design(group, factors):
+def joint_design(group, factors, shapes):
     """Stack the models in ``group`` (one position, every model with the WJC-20):
-    each keeps its own intercept, pts/82 and WJC-18 columns, and all share the
-    four WJC-20 columns at the end."""
-    owns = [design(m["sample"], [t for t in m["tourn"] if t != "wjc-20"], factors) for m in group]
+    each keeps its own intercept, pts/82 (in its own shape) and WJC-18 columns,
+    and all share the four WJC-20 columns at the end."""
+    owns = [design(m["sample"], [t for t in m["tourn"] if t != "wjc-20"], factors, shapes[m["rel"]]) for m in group]
     n = sum(len(o) for o in owns)
     X = np.zeros((n, sum(o.shape[1] for o in owns) + 4))
     rows, col, r0 = [], 0, 0
@@ -419,11 +440,12 @@ def old_predict(old, prefix, sample, tourn):
     """What the script had before this fit, with its own factors."""
     factors = old.LEAGUE_FACTORS
     a, b = getattr(old, f"{prefix}_INTERCEPT"), getattr(old, f"{prefix}_COEF")
+    kind = getattr(old, f"{prefix}_SHAPE", "linear")
     terms = getattr(old, f"{prefix}_WJC", None)
     if terms is None:     # the older pooled scripts (their WJC team-share adjustment needs team totals)
         x = old_x(sample, tourn, factors, pooled=True)
         return sigmoid(a + b * x)
-    X = design(sample.assign(x=old_x(sample, tourn, factors, pooled=False)), tourn, factors)
+    X = design(sample.assign(x=old_x(sample, tourn, factors, pooled=False)), tourn, factors, kind)
     beta = [a, b] + [v for t in sorted(tourn) for v in terms.get(t, (0.0, 0.0))]
     z = X @ np.array(beta)
     age_terms = getattr(old, f"{prefix}_WJC_AGE", {})
@@ -459,53 +481,66 @@ def main():
     draft["star"] = ((draft.nhler == 1) &
                      (draft.peak >= draft.pos.map(thresholds))).astype(int)
 
-    if "--po-sweep" in sys.argv:
-        po_sweep(draft, stints, cover, factors)
-    results = fit_models(draft, stints, cover, factors, PO_WEIGHT)
+    po_weight = po_sweep(draft, stints, cover, factors) if "--po-sweep" in sys.argv else PO_WEIGHT
+    results = fit_models(draft, stints, cover, factors, po_weight)
 
     examples = star_examples(career, thresholds)
     out = {"classes": [CLASSES.start, CLASSES.stop - 1], "star_thresholds": thresholds,
-           "star_examples": examples, "factors": factors, "po_weight": PO_WEIGHT, "models": results}
+           "star_examples": examples, "factors": factors, "po_weight": po_weight, "models": results}
     (HERE / "coefficients.json").write_text(json.dumps(out, indent=2), encoding="utf-8")
     write_report(out, draft)
     if write:
         for res in results:
-            write_script(res, factors, examples[res["pos"]])
+            write_script(res, factors, examples[res["pos"]], po_weight[res["pos"]])
     print("star thresholds:", {k: round(v, 1) for k, v in thresholds.items()})
 
 
 def po_sweep(draft, stints, cover, factors):
-    """CV log loss of every model at each playoff weight -> training/po_sweep.json."""
-    sweep = {}
+    """CV log loss of every model at each playoff weight -> training/po_sweep.json;
+    returns the best weight per position (NHLer + star log loss summed over its 7 models)."""
+    sweep, best = {}, {}
     for w in PO_SWEEP:
-        res = fit_models(draft, stints, cover, factors, w, quiet=True)
+        res = fit_models(draft, stints, cover, factors, {"F": w, "D": w}, quiet=True)
         sweep[str(w)] = {f"{r['pos']}{r['rel']:+d}": [r["nhler"]["cv_log_loss"], r["star"]["cv_log_loss"]] for r in res}
-        tot = [sum(v[i] for v in sweep[str(w)].values()) for i in (0, 1)]
-        print(f"playoff weight {w}: summed CV log loss NHLer {tot[0]:.4f}, star {tot[1]:.4f}")
+        for pos in ("F", "D"):
+            tot = sum(sum(v) for k, v in sweep[str(w)].items() if k[0] == pos)
+            print(f"playoff weight {w} {pos}: summed CV log loss {tot:.4f}")
+            if pos not in best or tot < best[pos][1]:
+                best[pos] = (w, tot)
     (HERE / "po_sweep.json").write_text(json.dumps(sweep, indent=1), encoding="utf-8")
+    print("best playoff weights:", {p: b[0] for p, b in best.items()})
+    return {p: b[0] for p, b in best.items()}
 
 
 def fit_models(draft, stints, cover, factors, po_weight, quiet=False):
     prepared = []
     for pos, rel, script, tourn in MODELS:
         d = draft[draft.pos == pos]
-        sample, played = model_sample(d, stints, cover, rel, tourn, factors, po_weight)
+        sample, played = model_sample(d, stints, cover, rel, tourn, factors, po_weight[pos])
         # Each pick's club stints, so the old scripts can be scored with their own factors
-        st = stints.merge(d[["playerId", "draftYear"]])
-        st = st[(st.end - st.draftYear == rel) & st.kind.isin(["reg", "po"])]
+        st = stints.merge(d[["playerId", "baseYear"]])
+        st = st[(st.end - st.baseYear == rel) & st.kind.isin(["reg", "po"])]
         rows = st.groupby("playerId").apply(lambda g: list(zip(g.league, g.pts, g.gp)), include_groups=False)
         sample["club_stints"] = rows.reindex(sample.index).apply(lambda r: r if isinstance(r, list) else [])
-        prepared.append({"pos": pos, "rel": rel, "script": script, "tourn": sorted(tourn),
-                         "sample": sample, "played": played})
+        m = {"pos": pos, "rel": rel, "script": script, "tourn": sorted(tourn), "sample": sample, "played": played}
+        # The curve's shape, per model and outcome: the one with the best CV log loss
+        classes = sample.draftYear.to_numpy()
+        m["shape_cv"] = {}
+        for target in ("nhler", "star"):
+            y = sample[target].to_numpy()
+            m["shape_cv"][target] = {k: log_loss(cv_predict(design(sample, tourn, factors, k), y, classes,
+                                                            ridge_for(tourn)), y) for k in SHAPES}
+        m["shape"] = {t: min(c, key=c.get) for t, c in m["shape_cv"].items()}
+        prepared.append(m)
 
     # The models with the WJC-20 are fit jointly per position, sharing its age line.
     joint = {}
     for pos in ("F", "D"):
         group = [m for m in prepared if m["pos"] == pos and "wjc-20" in m["tourn"]]
-        X, ridge, rows = joint_design(group, factors)
         classes = np.concatenate([m["sample"].draftYear.to_numpy() for m in group])
-        shared = list(range(X.shape[1] - 4, X.shape[1]))
         for target in ("nhler", "star"):
+            X, ridge, rows = joint_design(group, factors, {m["rel"]: m["shape"][target] for m in group})
+            shared = list(range(X.shape[1] - 4, X.shape[1]))
             y = np.concatenate([m["sample"][target].to_numpy() for m in group])
             beta = fit_logistic(X, y, ridge)
             cvp = cv_predict(X, y, classes, ridge)
@@ -516,7 +551,6 @@ def fit_models(draft, stints, cover, factors, po_weight, quiet=False):
     results = []
     for m in prepared:
         pos, rel, script, tourn, sample, played = (m[k] for k in ("pos", "rel", "script", "tourn", "sample", "played"))
-        X = design(sample, tourn, factors)
         Xp = np.column_stack([np.ones(len(sample)), pooled_x(sample, tourn, factors)])
         classes = sample.draftYear.to_numpy()
         ridge = ridge_for(tourn)
@@ -529,6 +563,8 @@ def fit_models(draft, stints, cover, factors, po_weight, quiet=False):
         old = load_script(script) if (ROOT / script).exists() and not quiet else None
         for target, prefix in (("nhler", "NHLER"), ("star", "STAR")):
             y = sample[target].to_numpy()
+            kind = m["shape"][target]
+            X = design(sample, tourn, factors, kind)
             per_model_cv = log_loss(cv_predict(X, y, classes, ridge), y) if not quiet else float("nan")
             if "wjc-20" in tourn:
                 beta, Xj, cvp = joint[(pos, rel, target)]
@@ -544,6 +580,9 @@ def fit_models(draft, stints, cover, factors, po_weight, quiet=False):
                        for i, t in enumerate(others)}
                 wjc_age = {}
             mres = {"intercept": round(float(beta[0]), 6), "coef": round(float(beta[1]), 6),
+                    "shape": kind, "shape_cv": {k: round(v, 5) for k, v in m["shape_cv"][target].items()},
+                    # CV log loss of the straight line in raw pts82 (the old shape), for comparison
+                    "linear_cv_log_loss": m["shape_cv"][target]["linear"],
                     "wjc": wjc, "wjc_age": wjc_age,
                     "rate": float(y.mean()), "auc": float(auc(score, y)),
                     "log_loss": log_loss(sigmoid(score), y), "cv_log_loss": log_loss(cvp, y),
@@ -555,10 +594,12 @@ def fit_models(draft, stints, cover, factors, po_weight, quiet=False):
                 mres["old_log_loss"] = log_loss(old_predict(old, prefix, sample, tourn), y)
             res[target] = mres
         res["pts82_median"] = float(np.median(sample.x))
+        res["po_weight"] = po_weight[pos]
         results.append(res)
         if quiet:
             continue
-        print(f"{pos} D{rel:+d}  n={res['n']:4d}/{played}  NHLer {res['nhler']['rate']:.1%} "
+        print(f"{pos} D{rel:+d}  shapes {res['nhler']['shape']}/{res['star']['shape']}  "
+              f"n={res['n']:4d}/{played}  NHLer {res['nhler']['rate']:.1%} "
               f"(AUC {res['nhler']['auc']:.3f}, CV {res['nhler']['cv_log_loss']:.4f} / per-model "
               f"{res['nhler']['per_model_cv_log_loss']:.4f} / pooled {res['nhler']['pooled_cv_log_loss']:.4f})"
               f"  star {res['star']['rate']:.1%} (AUC {res['star']['auc']:.3f}, CV {res['star']['cv_log_loss']:.4f}"
@@ -577,7 +618,7 @@ def star_examples(career, thresholds):
     return out
 
 
-def write_script(res, factors, examples):
+def write_script(res, factors, examples, po_weight):
     """Render the model script from training/model_template.py.in."""
     pos, rel, tourn = res["pos"], res["rel"], res["tournaments"]
     label = "Draft Year" if rel == 0 else f"D{rel:+d}"
@@ -611,7 +652,8 @@ def write_script(res, factors, examples):
         group_plural="forwards" if pos == "F" else "defensemen", known_doc=known_doc, wjc_doc=wjc_doc,
         classes=f"{CLASSES.start}-{CLASSES.stop - 1}", script_name=Path(res["script"]).name,
         nhler_intercept=f"{res['nhler']['intercept']: .6f}", nhler_coef=f"{res['nhler']['coef']: .6f}",
-        po_weight=f"{PO_WEIGHT}",
+        po_weight=f"{po_weight}",
+        nhler_shape=repr(res["nhler"]["shape"]), star_shape=repr(res["star"]["shape"]),
         nhler_wjc=wjc_dict(res["nhler"]["wjc"]), nhler_wjc_age=wjc_dict(res["nhler"]["wjc_age"]),
         star_intercept=f"{res['star']['intercept']: .6f}", star_coef=f"{res['star']['coef']: .6f}",
         star_wjc=wjc_dict(res["star"]["wjc"]), star_wjc_age=wjc_dict(res["star"]["wjc_age"]),
@@ -640,12 +682,16 @@ def write_report(out, draft):
         "",
         "`n` is the number of picks with a usable season (10+ GP, at least half of it in leagues with an NHLe "
         "factor) out of those who played that season at all. `x` is NHLe pts/82 in league play (regular "
-        f"season + playoffs, each playoff game counting as {PO_WEIGHT} games; see [po_sweep.json](po_sweep.json)). Log loss (lower is better) is on the same sample five ways: the fit; "
+        f"season + playoffs, each playoff game counting as {out['po_weight']['F']} games for forwards and "
+        f"{out['po_weight']['D']} for defensemen; see [po_sweep.json](po_sweep.json)). Seasons are counted from each "
+        "player's first eligible draft. `shape` is the curve in pts82 each fit uses (linear, log(1+x) or sqrt), the one "
+        "with the best CV log loss; `linear` is the CV log loss a straight line would have. "
+        "Log loss (lower is better) is on the same sample five ways: the fit; "
         "leave-one-draft-class-out cross-validation; CV with each model's World Juniors terms fit on their "
         "own, without the shared WJC-20 age line (`per-season`); CV with the World Juniors pooled into "
         "pts/82 instead of their own term (`pooled`); and the coefficients and factors the script had before this fit.",
         "",
-        "| Model | n / played | NHLer rate | NHLer coefs | AUC | log loss fit / CV / per-season / pooled / old | Star rate | Star coefs | AUC | log loss fit / CV / per-season / pooled / old |",
+        "| Model | n / played | NHLer rate | NHLer coefs | AUC | log loss fit / CV / linear / per-season / pooled / old | Star rate | Star coefs | AUC | log loss fit / CV / linear / per-season / pooled / old |",
         "|---|---|---|---|---|---|---|---|---|---|",
     ]
     for r in out["models"]:
@@ -654,9 +700,11 @@ def write_report(out, draft):
         for target in ("nhler", "star"):
             m = r[target]
             old = f"{m['old_log_loss']:.3f}" if "old_log_loss" in m else "–"
-            cells += [f"{m['rate']:.1%}", f"{m['intercept']:.3f} + {m['coef']:.4f}·x",
+            xs = {"linear": "x", "log": "log(1+x)", "sqrt": "√x"}[m["shape"]]
+            cells += [f"{m['rate']:.1%}", f"{m['intercept']:.3f} + {m['coef']:.4f}·{xs}",
                       f"{m['auc']:.3f}",
-                      f"{m['log_loss']:.3f} / {m['cv_log_loss']:.3f} / {m['per_model_cv_log_loss']:.3f} / "
+                      f"{m['log_loss']:.3f} / {m['cv_log_loss']:.3f} / {m['linear_cv_log_loss']:.3f} / "
+                      f"{m['per_model_cv_log_loss']:.3f} / "
                       f"{m['pooled_cv_log_loss']:.3f} / {old}"]
         lines.append("| " + " | ".join(cells) + " |")
     lines += [

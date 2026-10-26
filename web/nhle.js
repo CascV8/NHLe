@@ -3,7 +3,7 @@
 //
 // A season is pooled the way training/fit.py pools it for the fit: regular season and playoffs in
 // every league with a factor, into pts/82 = sum(points x factor) / sum(games) x 82, a playoff game
-// counting as spec.po_weight games. The World Juniors
+// counting as spec.po_weight[group] games. The World Juniors
 // that model uses are not pooled: each is its own term, played + per_pts82 x (NHLe pts/82 there), and
 // for the WJC-20 both move with the player's age at the tournament.
 // A season gets probabilities only if it's one the models were fit on: 10+ regular-season games in
@@ -38,10 +38,14 @@ export function wjcLogOdds(terms, ageTerms, wjc, age, center) {
 }
 
 /** P(NHLer) and P(star). ``age`` is at the WJC-20 (default: the model's typical age there). */
+/** The curve a model's coefficient multiplies, and its inverse. */
+export const shape = (x, kind) => kind === "log" ? Math.log1p(Math.max(x, 0)) : kind === "sqrt" ? Math.sqrt(Math.max(x, 0)) : x;
+const unshape = (v, kind) => kind === "log" ? Math.expm1(v) : kind === "sqrt" ? Math.max(v, 0) ** 2 : v;
+
 export function probabilities(spec, group, rel, pts82, wjc = {}, age = null) {
   const m = spec.models[group][String(rel)];
   const a = age ?? m.wjc_age_typical ?? spec.wjc_age_center;
-  const lo = k => m[k][0] + m[k][1] * pts82 + wjcLogOdds(m.wjc[k], m.wjc_age[k], wjc, a, spec.wjc_age_center);
+  const lo = k => m[k][0] + m[k][1] * shape(pts82, m.shape?.[k]) + wjcLogOdds(m.wjc[k], m.wjc_age[k], wjc, a, spec.wjc_age_center);
   const nhler = sigmoid(lo("nhler"));
   return { nhler, star: Math.min(sigmoid(lo("star")), nhler) };
 }
@@ -74,7 +78,9 @@ export function firstEligibleDraft(birthDate) {
 export function buildCard(spec, player, current) {
   const group = positionGroup(player.position);
   if (!group) return { group: null, seasons: [] };
-  const draftYear = player.draft?.year || firstEligibleDraft(player.birthDate);
+  // Seasons count from the first draft the player was eligible for, as in training/fit.py: an
+  // overage pick's draft year is his first eligible year, not the year he was picked.
+  const draftYear = player.birthDate ? firstEligibleDraft(player.birthDate) : player.draft?.year;
   const tournaments = new Set(spec.tournaments);
   const nhlGpThrough = y => player.stats.filter(s => s.season <= y && s.type === "reg" && leagueKey(spec, s.league) === "nhl")
     .reduce((t, s) => t + s.gp, 0);
@@ -95,7 +101,8 @@ export function buildCard(spec, player, current) {
     const regGp = used.filter(r => r.type === "reg").reduce((t, r) => t + r.gp, 0);
     const out = { rel, label: label(rel), year, rows, gp, played: gp > 0, future: year > current, inProgress: year === current };
     if (!out.played) return out;
-    const w = r => r.type === "po" ? spec.po_weight ?? 1 : 1;
+    const poWeight = typeof spec.po_weight === "object" ? spec.po_weight[group] : spec.po_weight ?? 1;
+    const w = r => r.type === "po" ? poWeight : 1;
     out.nhlePts = used.reduce((t, r) => t + r.pts * r.factor * w(r), 0);
     out.pts82 = out.nhlePts / used.reduce((t, r) => t + r.gp * w(r), 0) * 82;
     // Each World Juniors this model uses: NHLe pts/82 at the tournament, its own term in the model.
@@ -114,8 +121,9 @@ export function buildCard(spec, player, current) {
     // card's line can show a big tournament in the same units as the season.
     if (Object.keys(out.wjc).length) {
       const a = out.wjcAge ?? model.wjc_age_typical ?? spec.wjc_age_center;
-      out.wjcPts82 = wjcLogOdds(model.wjc.nhler, model.wjc_age.nhler, out.wjc, a, spec.wjc_age_center) / model.nhler[1];
-      out.adjPts82 = out.pts82 + out.wjcPts82;
+      const k = model.shape?.nhler, lo = wjcLogOdds(model.wjc.nhler, model.wjc_age.nhler, out.wjc, a, spec.wjc_age_center);
+      out.adjPts82 = unshape(shape(out.pts82, k) + lo / model.nhler[1], k);
+      out.wjcPts82 = out.adjPts82 - out.pts82;
     }
     if (model.known && nhlGpThrough(year) >= 200) { out.nhler = 1; out.known = true; }
     return out;

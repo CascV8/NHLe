@@ -118,7 +118,10 @@ python training/fit.py --write # refits all 14 models and regenerates the script
   league-website tables from puckscrape (AHL, ECHL, CHL, junior A, Sweden, Finland, Switzerland,
   Germany, Czechia, Austria, the UK...) linked by name within a country. Leagues whose factor has a
   bootstrap error above ~28% are left out of the scripts.
-- **Players:** every NHL draft pick from 2006 to 2018, split by draft-listed position.
+- **Players:** every NHL draft pick from 2006 to 2018, split by draft-listed position. Seasons
+  count from each player's first eligible draft (18 by September 15), not the year he was picked:
+  an overage pick's age-20 season is his D+2, not his draft year. The website places players the
+  same way.
 - **Stats:** each pick's season-by-season totals in every league, from the NHL's player pages.
   (Elite Prospects blocks scraping.) League names are mapped onto the factor table. A season is
   used only if at least half its games are in leagues with a factor; high school, U18 AAA and
@@ -127,7 +130,9 @@ python training/fit.py --write # refits all 14 models and regenerates the script
 - **Outcomes:** 200 NHL games, and peak GAR from Neil Paine's data through 2024-25. Later seasons
   use an estimate of his GAR from MoneyPuck stats (R² 0.94–0.95 on held-out seasons), rescaled
   to his league-wide level.
-- **Fit:** one logistic regression per model and outcome on NHLe pts/82, plus the World Juniors
+- **Fit:** one logistic regression per model and outcome on NHLe pts/82 (as a straight line,
+  log(1 + pts/82) or √pts/82, whichever cross-validates best for that model and outcome; forwards
+  and defensemen are fit separately throughout, playoff weight included), plus the World Juniors
   terms (lightly ridged, so a tournament with a handful of players in the sample stays near zero).
   [`training/REPORT.md`](training/REPORT.md) lists sample sizes, AUC, and log loss in-sample,
   leave-one-draft-class-out, with the World Juniors pooled into pts/82 instead, and against the

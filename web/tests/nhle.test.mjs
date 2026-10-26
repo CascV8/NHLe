@@ -66,7 +66,7 @@ test("Bedard's card pools leagues, playoffs and the right World Juniors", () => 
   close(d1.wjcAge, (Date.UTC(2022, 0, 1) - Date.parse("2005-07-17")) / (365.25 * 86400e3));   // 16 at that WJC-20
   close(d1.nhler, probabilities(SPEC, "F", -1, d1.pts82, d1.wjc, d1.wjcAge).nhler);
   // Draft year: WHL regular season + playoffs, plus the WJC-20 term.
-  const w = SPEC.po_weight;   // a playoff game counts as w regular-season games
+  const w = SPEC.po_weight.F;   // a playoff game counts as w regular-season games (forwards)
   close(dy.pts82, (143 + 20 * w) * f.whl / (57 + 7 * w) * 82);
   assert.deepEqual(Object.keys(dy.wjc), ["wjc-20"]);
   close(dy.nhler, probabilities(SPEC, "F", 0, dy.pts82, dy.wjc, dy.wjcAge).nhler);
@@ -90,6 +90,15 @@ test("the World Juniors show on the NHLe line as pts/82 worth the same NHLer odd
   close(probabilities(SPEC, "F", 0, dy.adjPts82).nhler, dy.nhler, 1e-9);
   assert.equal(card.seasons[5].adjPts82, undefined);   // no WJC, nothing to add
   assert.ok(m.nhler[1] > 0);
+});
+
+test("an overage pick's seasons count from his first eligible draft, not the year he was picked", () => {
+  const card = buildCard(SPEC, { name: "O", position: "C", birthDate: "1996-02-01",
+    draft: { year: 2017, round: 6, overall: 184, team: "FLA" }, stats: [
+      { season: 2015, type: "reg", league: "Liiga", team: "T", gp: 50, g: 10, a: 18, pts: 28 }] }, 2026);
+  assert.equal(card.draftYear, 2014);           // 18 by Sept 15, 2014; picked in 2017 at 21
+  assert.equal(card.seasons.find(s => s.year === 2015).label, "D+2");
+  assert.equal(card.drafted, true);
 });
 
 test("a season mostly in unrated leagues isn't rated", () => {

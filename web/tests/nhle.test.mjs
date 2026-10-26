@@ -82,6 +82,16 @@ test("Bedard's card pools leagues, playoffs and the right World Juniors", () => 
   assert.equal(card.latest, dp3);
 });
 
+test("the World Juniors show on the NHLe line as pts/82 worth the same NHLer odds", () => {
+  const card = buildCard(SPEC, nhlPlayer(landing), 2026);
+  const dy = card.seasons[1], m = SPEC.models.F["0"];
+  close(dy.adjPts82, dy.pts82 + dy.wjcPts82);
+  // the adjusted rate alone, with no WJC, gives the season's NHLer odds
+  close(probabilities(SPEC, "F", 0, dy.adjPts82).nhler, dy.nhler, 1e-9);
+  assert.equal(card.seasons[5].adjPts82, undefined);   // no WJC, nothing to add
+  assert.ok(m.nhler[1] > 0);
+});
+
 test("a season mostly in unrated leagues isn't rated", () => {
   const card = buildCard(SPEC, { name: "X", position: "C", birthDate: "2009-03-01", draft: null, stats: [
     { season: 2025, type: "reg", league: "OHL", team: "T", gp: 20, g: 5, a: 5, pts: 10 },

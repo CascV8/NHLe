@@ -110,6 +110,13 @@ export function buildCard(spec, player, current) {
     if (out.unrated) return out;
     out.wjcAge = ageOnJan1(player.birthDate, year + 1);
     Object.assign(out, probabilities(spec, group, rel, out.pts82, out.wjc, out.wjcAge));
+    // The WJC as NHLe: the league pts/82 that would give the same NHLer odds with no WJC, so the
+    // card's line can show a big tournament in the same units as the season.
+    if (Object.keys(out.wjc).length) {
+      const a = out.wjcAge ?? model.wjc_age_typical ?? spec.wjc_age_center;
+      out.wjcPts82 = wjcLogOdds(model.wjc.nhler, model.wjc_age.nhler, out.wjc, a, spec.wjc_age_center) / model.nhler[1];
+      out.adjPts82 = out.pts82 + out.wjcPts82;
+    }
     if (model.known && nhlGpThrough(year) >= 200) { out.nhler = 1; out.known = true; }
     return out;
   });

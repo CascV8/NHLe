@@ -70,11 +70,16 @@ tr:last-child td { border-bottom: 0; }
 tbody tr:hover { background: var(--track); }
 /* Draft class: a divider row where each round starts (pick order only). */
 tr.round td { font: 600 .74rem var(--display); letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
-  text-align: left; background: var(--track); padding: 5px 8px; position: sticky; top: 33px; }
+  text-align: left; background: var(--track); padding: 5px 8px; position: sticky; top: var(--head-h, 32px); }
 tr.round:hover { background: none; }
 /* Star and NHLer cells: the card's yellow and green, deeper the likelier (shade set inline). */
 td.pct { font-weight: 700; min-width: 3.2em; }
 td.pct.dark { color: var(--bg); }
+#browse-head th { z-index: 2; }   /* above the sticky round dividers it overlaps by a pixel */
+tr.round td { z-index: 1; }
+#browse-head th[data-sort] { cursor: pointer; user-select: none; }
+#browse-head th[data-sort]:hover { color: var(--ink); }
+#browse-head th .arrow { color: var(--ink); }
 
 /* The card: header, outcome bars per draft-relative season, the season labels, then the NHLe line. */
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; margin-bottom: 8px; }
@@ -167,6 +172,12 @@ td.pct.dark { color: var(--bg); }
       <label for="draft-year" data-for="draft">Draft <select id="draft-year"></select></label>
       <label for="draft-sort" data-for="draft">Sort <select id="draft-sort">
         <option value="pick">Pick</option><option value="star">Star %</option><option value="nhler">NHLer %</option>
+        <option value="column" hidden>Column</option>
+      </select></label>
+      <label for="draft-season" data-for="draft">Season <select id="draft-season">
+        <option value="latest">Latest</option><option value="-1">D-1</option><option value="0">DY</option>
+        <option value="1">D+1</option><option value="2">D+2</option><option value="3">D+3</option>
+        <option value="4">D+4</option><option value="5">D+5</option>
       </select></label>
       <span class="dim" id="draft-progress" data-for="draft"></span>
       <label for="league" data-for="league" hidden>League <select id="league"></select></label>
@@ -182,7 +193,7 @@ td.pct.dark { color: var(--bg); }
 </div>
 
 <script type="module">
-import { buildCard, leagueKey } from "./nhle.js";
+import { buildCard, label, leagueKey, SEASONS } from "./nhle.js";
 
 // Coefficients, league factors and season rules, written from the NHLe repo by web/build.py.
 const SPEC = await (await fetch("nhle-model.json")).json();
@@ -418,9 +429,10 @@ let tab = "draft";
 const row = cells => `<tr>${cells.map(([v, l]) => `<td class="${l ? "l" : ""}">${v}</td>`).join("")}</tr>`;
 const pickBtn = p => `<button type="button" class="pick" data-src="${p.src}" data-id="${esc(p.id)}">${esc(p.name)}</button>`;
 
-// Draft-class outcomes: each pick's card, built the same way as the one you open, and its headline
-// (latest rated) season. Loaded for every class shown, six players at a time, and kept.
-const outcomes = new Map();   // player id -> { star, nhler, label } (null values: no rated season)
+// Draft-class outcomes: each pick's card, built the same way as the one you open. Kept per player:
+// the headline (latest rated) season and every draft-relative season, so the Season menu can switch
+// between them without rebuilding. Loaded for every class shown, six players at a time.
+const outcomes = new Map();   // player id -> { latest: {star, nhler, label}, byRel: {rel: {star, nhler, label}} }
 let draftList = [], draftToken = 0;
 async function loadOutcomes(list, token) {
   const todo = list.filter(p => !outcomes.has(p.id));
@@ -429,10 +441,11 @@ async function loadOutcomes(list, token) {
   show();
   const work = async () => {
     for (let p; (p = todo.shift());) {
+      const pick = s => ({ star: s?.star ?? null, nhler: s?.nhler ?? null, label: s?.label ?? "" });
       try {
         const c = buildCard(SPEC, await api("player", { src: p.src, id: p.id }), CURRENT);
-        outcomes.set(p.id, { star: c.latest?.star ?? null, nhler: c.latest?.nhler ?? null, label: c.latest?.label ?? "" });
-      } catch (e) { outcomes.set(p.id, { star: null, nhler: null, label: "" }); }
+        outcomes.set(p.id, { latest: pick(c.latest), byRel: Object.fromEntries(c.seasons.map(s => [s.rel, pick(s)])) });
+      } catch (e) { outcomes.set(p.id, { latest: pick(null), byRel: {} }); }
       done++;
       if (token !== draftToken) return;
       show();
@@ -448,19 +461,53 @@ function pctCell(p, color) {
   return `<td class="pct${p >= 0.55 ? " dark" : ""}" style="background:color-mix(in srgb, var(${color}) ${strength}%, transparent)">${pct(p)}</td>`;
 }
 
+// Sorting, like a spreadsheet: click a column header to sort by it, click again to reverse. The Sort
+// menu is a shortcut for the common ones. Numbers start high-to-low except the pick; text A-Z.
+const DRAFT_COLS = [
+  ["overall", "#", ""], ["name", "Player", "l"], ["pos", "Pos", "l"], ["team", "Team", "l"],
+  ["club", "Drafted from", "l"], ["nation", "Nation", "l"], ["star", "Star", ""], ["nhler", "NHLer", ""], ["season", "Season", "l"]];
+let draftSort = { key: "overall", dir: 1 };
+const shownSeason = p => {
+  const o = outcomes.get(p.id), which = $("draft-season").value;
+  return !o ? null : which === "latest" ? o.latest : o.byRel[which] ?? { star: null, nhler: null, label: "" };
+};
+function sortValue(p, key) {
+  if (key === "star" || key === "nhler") return shownSeason(p)?.[key] ?? null;
+  if (key === "season") { const o = shownSeason(p); return o?.nhler == null ? null : SEASONS.indexOf(SEASONS.find(r => label(r) === o.label)); }
+  if (key === "club") return `${p.club ?? ""} ${p.league ?? ""}`.trim().toLowerCase() || null;
+  const v = p[key];
+  return typeof v === "string" ? v.toLowerCase() || null : v ?? null;
+}
+function setSort(key, dir) {
+  draftSort = { key, dir };
+  const menu = { overall: dir === 1 ? "pick" : "column", star: dir === -1 ? "star" : "column", nhler: dir === -1 ? "nhler" : "column" };
+  $("draft-sort").value = menu[key] ?? "column";
+  renderDraft();
+}
+
 function renderDraft() {
-  const sort = $("draft-sort").value, byOutcome = sort !== "pick";
-  const key = p => outcomes.get(p.id)?.[sort] ?? -1;   // not loaded yet / no rated season: last
-  const list = byOutcome ? [...draftList].sort((a, b) => key(b) - key(a) || a.overall - b.overall) : draftList;
-  $("browse-head").innerHTML = `<tr><th>#</th><th class="l">Player</th><th class="l">Pos</th><th class="l">Team</th>` +
-    `<th class="l">Drafted from</th><th class="l">Nation</th><th>Star</th><th>NHLer</th><th class="l">Season</th></tr>`;
-  const cols = 9;
+  const { key, dir } = draftSort;
+  const list = [...draftList].sort((a, b) => {
+    const x = sortValue(a, key), y = sortValue(b, key);
+    if (x === y) return a.overall - b.overall;
+    if (x == null) return 1;                     // blanks (not loaded, unrated) always last
+    if (y == null) return -1;
+    return (x < y ? -1 : 1) * dir;
+  });
+  const arrow = k => k === key ? ` <span class="arrow">${dir === 1 ? "▲" : "▼"}</span>` : "";
+  $("browse-head").innerHTML = "<tr>" + DRAFT_COLS.map(([k, name, cls]) =>
+    `<th${cls ? ` class="${cls}"` : ""} data-sort="${k}" title="Sort by ${name}" aria-sort="${k === key ? (dir === 1 ? "ascending" : "descending") : "none"}">${name}${arrow(k)}</th>`).join("") + "</tr>";
+  // Round dividers stick just under the header: at its measured height (less a pixel of overlap,
+  // so no sub-pixel gap shows rows scrolling between them).
+  const head = $("browse-head").getBoundingClientRect().height;
+  if (head) $("browse-head").closest(".table").style.setProperty("--head-h", `${Math.max(0, head - 1)}px`);
+  const dividers = key === "overall" && dir === 1;   // round dividers only in pick order
   let round = null;
   $("browse-rows").innerHTML = list.map(p => {
-    const divider = !byOutcome && p.round !== round ? `<tr class="round"><td colspan="${cols}">Round ${(round = p.round)}</td></tr>` : "";
-    const o = outcomes.get(p.id);
+    const divider = dividers && p.round !== round ? `<tr class="round"><td colspan="${DRAFT_COLS.length}">Round ${(round = p.round)}</td></tr>` : "";
+    const o = shownSeason(p);
     const outcome = !o ? '<td class="pct dim">…</td><td class="pct dim">…</td><td class="l"></td>'
-      : o.nhler == null ? '<td class="pct">–</td><td class="pct">–</td><td class="l dim" title="No rated season yet">–</td>'
+      : o.nhler == null ? '<td class="pct">–</td><td class="pct">–</td><td class="l dim" title="No rated season">–</td>'
       : pctCell(o.star, "--star") + pctCell(o.nhler, "--nhler") + `<td class="l dim">${esc(o.label)}</td>`;
     return divider + row([[p.overall], [pickBtn(p), 1], [esc(p.pos), 1], [esc(p.team), 1],
       [`${esc(p.club)} <span class="dim">${esc(p.league)}</span>`, 1], [esc(p.nation), 1]]).replace("</tr>", outcome + "</tr>");
@@ -496,7 +543,19 @@ document.addEventListener("click", e => {
   if (b?.classList.contains("pick")) choose({ src: b.dataset.src, id: b.dataset.id });
 });
 for (const id of ["draft-year", "league", "league-season"]) $(id).addEventListener("change", browse);
-$("draft-sort").addEventListener("change", renderDraft);
+$("draft-sort").addEventListener("change", () => {
+  const v = $("draft-sort").value;
+  if (v === "pick") setSort("overall", 1);
+  else if (v === "star" || v === "nhler") setSort(v, -1);
+});
+$("draft-season").addEventListener("change", renderDraft);
+$("browse-head").addEventListener("click", e => {
+  const th = e.target.closest("th[data-sort]");
+  if (!th || tab !== "draft") return;
+  const k = th.dataset.sort;
+  // Same column: reverse it. New column: numbers (but the pick) start high-to-low, text A-Z.
+  setSort(k, k === draftSort.key ? -draftSort.dir : ["star", "nhler"].includes(k) ? -1 : 1);
+});
 
 // ── Start ──────────────────────────────────────────────────────────────────────────────────────
 function fromUrl() {

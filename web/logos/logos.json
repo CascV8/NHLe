@@ -1,0 +1,126 @@
+{
+ "ahl": {
+  "file": "ahl.png",
+  "invert_dark": false
+ },
+ "allsvenskan": {
+  "file": "allsvenskan.png",
+  "invert_dark": true
+ },
+ "bchl": {
+  "file": "bchl.png",
+  "invert_dark": false
+ },
+ "czechia-u20": {
+  "file": "czechia-u20.png",
+  "invert_dark": false
+ },
+ "czechia": {
+  "file": "czechia.png",
+  "invert_dark": false
+ },
+ "czechia2": {
+  "file": "czechia2.png",
+  "invert_dark": false
+ },
+ "del": {
+  "file": "del.png",
+  "invert_dark": false
+ },
+ "del2": {
+  "file": "del2.png",
+  "invert_dark": false
+ },
+ "dnl": {
+  "file": "dnl.png",
+  "invert_dark": false
+ },
+ "khl": {
+  "file": "khl.png",
+  "invert_dark": false
+ },
+ "latvia": {
+  "file": "latvia.svg",
+  "invert_dark": false
+ },
+ "liiga": {
+  "file": "liiga.png",
+  "invert_dark": true
+ },
+ "mestis": {
+  "file": "mestis.png",
+  "invert_dark": false
+ },
+ "mhl": {
+  "file": "mhl.svg",
+  "invert_dark": false
+ },
+ "ncaa": {
+  "file": "ncaa.svg",
+  "invert_dark": false
+ },
+ "nhl": {
+  "file": "nhl.svg",
+  "invert_dark": false
+ },
+ "nl": {
+  "file": "nl.png",
+  "invert_dark": true
+ },
+ "ohl": {
+  "file": "ohl.png",
+  "invert_dark": false
+ },
+ "qmjhl": {
+  "file": "qmjhl.png",
+  "invert_dark": false
+ },
+ "shl": {
+  "file": "shl.png",
+  "invert_dark": true
+ },
+ "sl": {
+  "file": "sl.png",
+  "invert_dark": false
+ },
+ "slovakia": {
+  "file": "slovakia.png",
+  "invert_dark": false
+ },
+ "slovakia2": {
+  "file": "slovakia2.png",
+  "invert_dark": false
+ },
+ "u20-nationell": {
+  "file": "u20-nationell.svg",
+  "invert_dark": true
+ },
+ "u20-sm-sarja": {
+  "file": "u20-sm-sarja.png",
+  "invert_dark": true
+ },
+ "u21-elite": {
+  "file": "u21-elite.svg",
+  "invert_dark": false
+ },
+ "ushl": {
+  "file": "ushl.svg",
+  "invert_dark": false
+ },
+ "vhl": {
+  "file": "vhl.png",
+  "invert_dark": true
+ },
+ "whl": {
+  "file": "whl.png",
+  "invert_dark": false
+ },
+ "wjc-18": {
+  "file": "wjc-18.svg",
+  "invert_dark": true
+ },
+ "wjc-20": {
+  "file": "wjc-20.svg",
+  "invert_dark": true
+ }
+}

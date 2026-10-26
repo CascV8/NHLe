@@ -42,10 +42,11 @@ class TestWebSpec(unittest.TestCase):
 
     def test_logos_are_for_rated_leagues(self):
         self.assertIn("nhl", self.spec["logos"])
-        for key, path in self.spec["logos"].items():
+        for key, logo in self.spec["logos"].items():
             with self.subTest(league=key):
                 self.assertIn(key, self.spec["factors"])
-                self.assertTrue((ROOT / "web" / "logos" / Path(path).name).is_file())
+                self.assertTrue((ROOT / "web" / "logos" / Path(logo["src"]).name).is_file())
+                self.assertIsInstance(logo["invert"], bool)
 
     def test_build_writes_the_site_files(self):
         with tempfile.TemporaryDirectory() as tmp:

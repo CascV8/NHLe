@@ -10,18 +10,13 @@
 <style>
 /* Same tokens as the index and the microstat cards; the outcome colours are the NHLe graphic's. */
 :root {
-  --bg: #e9eef2; --surface: #ffffff; --ink: #0f1a24; --muted: #566573; --line: #d3dce3; --track: #e3e9ee;
-  --accent: #b3122e;
-  --star: #ffc400; --nhler: #00c01e; --bust: #d9d9d9; --nhle: #3d9ee8;
+  --bg: #0b1117; --surface: #131c24; --ink: #e5ecf1; --muted: #8d9ba7; --line: #24323e; --track: #1e2a35;
+  --accent: #f2883a;   /* the Pattullo orange */
+  --star: #f2bb18; --nhler: #1fb83a; --bust: #34424f; --nhle: #5bb8f5;
   --display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
   --body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  color-scheme: dark;
 }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
-  --bg: #0b1117; --surface: #131c24; --ink: #e5ecf1; --muted: #8d9ba7; --line: #24323e; --track: #1e2a35;
-  --accent: #f0566c; --star: #f2bb18; --nhler: #1fb83a; --bust: #34424f; --nhle: #5bb8f5; color-scheme: dark } }
-:root[data-theme="dark"] {
-  --bg: #0b1117; --surface: #131c24; --ink: #e5ecf1; --muted: #8d9ba7; --line: #24323e; --track: #1e2a35;
-  --accent: #f0566c; --star: #f2bb18; --nhler: #1fb83a; --bust: #34424f; --nhle: #5bb8f5; color-scheme: dark }
 
 * { box-sizing: border-box }
 [hidden] { display: none !important; }
@@ -78,8 +73,10 @@ tbody tr:hover { background: var(--track); }
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; margin-bottom: 8px; }
 .card-head { display: grid; grid-template-columns: auto 1fr auto; gap: 6px 16px; align-items: center; padding: 14px 16px;
   border-bottom: 1px solid var(--line); }
-.shot { width: 72px; height: 72px; border-radius: 8px; background: var(--track); object-fit: cover; }
-.shot.none { display: grid; place-items: center; font: 700 1.6rem var(--display); color: var(--muted); }
+/* Photos are transparent cutouts drawn straight on the card; only the initials placeholder keeps a tile. */
+.shot { width: 72px; height: 72px; object-fit: contain; object-position: bottom; }
+.shot.none { display: grid; place-items: center; font: 700 1.6rem var(--display); color: var(--muted);
+  background: var(--track); border-radius: 8px; }
 .pname { font: 700 2rem/1 var(--display); text-transform: uppercase; letter-spacing: .01em; margin: 0; text-wrap: balance; }
 .pline { font: 600 .95rem var(--body); color: var(--muted); margin-top: 4px; }
 .gen { text-align: right; }
@@ -121,11 +118,12 @@ tbody tr:hover { background: var(--track); }
   font: 700 1rem/1 var(--display); font-variant-numeric: tabular-nums; }
 .lg { position: absolute; bottom: 6px; transform: translateX(-50%); max-width: 13.5%; text-align: center; font: 600 .72rem/1.15 var(--display);
   letter-spacing: .05em; text-transform: uppercase; color: var(--muted); overflow-wrap: anywhere; }
-/* League logos sit on a light plate in both themes (like graphic.py's white card), so dark and white marks both read. */
-.lg.logo { display: grid; place-items: center; height: 36px; width: 64px; max-width: 13.5%; padding: 4px 6px;
-  background: #f3f6f8; border: 1px solid var(--line); border-radius: 7px; }
-.lg.logo img { display: block; height: 26px; width: 100%; object-fit: contain; }
-@media (max-width: 560px) { .lg.logo { height: 30px; padding: 3px; } .lg.logo img { height: 22px; } }
+/* League logos are drawn transparent, straight on the card. The site is dark-only, so dark single-colour marks
+   (logos.json) are always inverted to stay visible. */
+.lg.logo { display: grid; place-items: center; height: 34px; width: 64px; max-width: 13.5%; }
+.lg.logo img { display: block; height: 30px; width: 100%; object-fit: contain; }
+.lg.logo img.inv { filter: invert(1); }
+@media (max-width: 560px) { .lg.logo { height: 28px; } .lg.logo img { height: 24px; } }
 .line .none { position: absolute; top: 45%; transform: translateX(-50%); color: var(--muted); }
 .line .ax { position: absolute; left: 0; top: 4px; font-size: .7rem; color: var(--muted); }
 
@@ -268,8 +266,8 @@ function mainLeague(s) {
 function leagueTag(s, x) {
   const r = mainLeague(s);
   if (!r) return "";
-  const src = SPEC.logos?.[r.key];
-  return src ? `<span class="lg logo" style="left:${x}%" title="${esc(r.league)}"><img src="${esc(src)}" alt="${esc(r.league)}" loading="lazy"></span>`
+  const logo = SPEC.logos?.[r.key];
+  return logo ? `<span class="lg logo" style="left:${x}%" title="${esc(r.league)}"><img src="${esc(logo.src)}"${logo.invert ? ` class="inv"` : ""} alt="${esc(r.league)}" loading="lazy"></span>`
     : `<span class="lg" style="left:${x}%">${esc(r.league)}</span>`;
 }
 
@@ -352,13 +350,46 @@ async function playerPhoto(p) {
     .sort((a, b) => b.season - a.season).map(s => `${leagueKey(SPEC, s.league)}:${s.season}`))].slice(0, 4);
   if (!seasons.length && !p.headshot) return;
   try {
-    const { url } = await api("photo", { nhl: p.headshot || "", name: p.name, born: p.birthDate || "", seasons: seasons.join(",") });
+    const { url, cutout: relay } = await api("photo", { nhl: p.headshot || "", name: p.name, born: p.birthDate || "", seasons: seasons.join(",") });
     const shot = $("shot");
-    if (url && shot) {
-      const img = Object.assign(document.createElement("img"), { className: "shot", src: url, alt: "" });
-      img.onload = () => shot.replaceWith(img);   // swap only once it has loaded, so a dead link keeps the initials
-    }
+    if (!url || !shot) return;
+    const img = Object.assign(document.createElement("img"), { className: "shot", alt: "" });
+    // NHL and Liiga photos are already cut out; HockeyTech's have a white background to remove (if that fails, show it as is).
+    img.onload = () => {
+      if (relay && !img.dataset.cut) {
+        img.dataset.cut = "1";
+        try { img.src = cutout(img); return; } catch (e) {}
+      }
+      shot.replaceWith(img);   // swap only once it has loaded, so a dead link keeps the initials
+    };
+    img.src = relay || url;
   } catch (e) {}
+}
+
+// Make a studio photo's white background transparent: flood-fill near-white pixels inward from the top and side
+// edges (not the bottom, where a white shirt can touch the frame), then fade the light pixels along the cut.
+function cutout(img, tol = 38, soft = 70) {
+  const w = img.naturalWidth, h = img.naturalHeight;
+  const canvas = Object.assign(document.createElement("canvas"), { width: w, height: h });
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(img, 0, 0);
+  const data = ctx.getImageData(0, 0, w, h), px = data.data;
+  const dist = i => Math.max(255 - px[i], 255 - px[i + 1], 255 - px[i + 2]);   // distance from white
+  const bg = new Uint8Array(w * h), queue = [];
+  const seed = (x, y) => { const k = y * w + x; if (!bg[k] && dist(k * 4) <= tol) { bg[k] = 1; queue.push(k); } };
+  for (let x = 0; x < w; x++) seed(x, 0);
+  for (let y = 0; y < h; y++) { seed(0, y); seed(w - 1, y); }
+  while (queue.length) {
+    const k = queue.pop(), x = k % w, y = (k - x) / w;
+    if (x > 0) seed(x - 1, y); if (x < w - 1) seed(x + 1, y); if (y > 0) seed(x, y - 1); if (y < h - 1) seed(x, y + 1);
+  }
+  for (let k = 0; k < w * h; k++) {
+    if (bg[k]) { px[k * 4 + 3] = 0; continue; }
+    const x = k % w, edge = (x > 0 && bg[k - 1]) || (x < w - 1 && bg[k + 1]) || (k >= w && bg[k - w]) || (k < w * (h - 1) && bg[k + w]);
+    if (edge) px[k * 4 + 3] = Math.round(255 * Math.min(1, dist(k * 4) / soft));
+  }
+  ctx.putImageData(data, 0, 0);
+  return canvas.toDataURL("image/png");
 }
 
 async function linkMicrostats(p) {

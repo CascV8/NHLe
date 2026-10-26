@@ -2,7 +2,8 @@
 // which web/build.py writes from the scripts, training/fit.py and training/coefficients.json.
 //
 // A season is pooled the way training/fit.py pools it for the fit: regular season and playoffs in
-// every league with a factor, into pts/82 = sum(points x factor) / sum(games) x 82. The World Juniors
+// every league with a factor, into pts/82 = sum(points x factor) / sum(games) x 82, a playoff game
+// counting as spec.po_weight games. The World Juniors
 // that model uses are not pooled: each is its own term, played + per_pts82 x (NHLe pts/82 there), and
 // for the WJC-20 both move with the player's age at the tournament.
 // A season gets probabilities only if it's one the models were fit on: 10+ regular-season games in
@@ -94,8 +95,9 @@ export function buildCard(spec, player, current) {
     const regGp = used.filter(r => r.type === "reg").reduce((t, r) => t + r.gp, 0);
     const out = { rel, label: label(rel), year, rows, gp, played: gp > 0, future: year > current, inProgress: year === current };
     if (!out.played) return out;
-    out.nhlePts = used.reduce((t, r) => t + r.pts * r.factor, 0);
-    out.pts82 = out.nhlePts / gp * 82;
+    const w = r => r.type === "po" ? spec.po_weight ?? 1 : 1;
+    out.nhlePts = used.reduce((t, r) => t + r.pts * r.factor * w(r), 0);
+    out.pts82 = out.nhlePts / used.reduce((t, r) => t + r.gp * w(r), 0) * 82;
     // Each World Juniors this model uses: NHLe pts/82 at the tournament, its own term in the model.
     out.wjc = {};
     for (const r of rows.filter(r => r.used && tournaments.has(r.key))) {

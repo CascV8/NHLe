@@ -66,7 +66,8 @@ test("Bedard's card pools leagues, playoffs and the right World Juniors", () => 
   close(d1.wjcAge, (Date.UTC(2022, 0, 1) - Date.parse("2005-07-17")) / (365.25 * 86400e3));   // 16 at that WJC-20
   close(d1.nhler, probabilities(SPEC, "F", -1, d1.pts82, d1.wjc, d1.wjcAge).nhler);
   // Draft year: WHL regular season + playoffs, plus the WJC-20 term.
-  close(dy.pts82, (143 + 20) * f.whl / 64 * 82);
+  const w = SPEC.po_weight;   // a playoff game counts as w regular-season games
+  close(dy.pts82, (143 + 20 * w) * f.whl / (57 + 7 * w) * 82);
   assert.deepEqual(Object.keys(dy.wjc), ["wjc-20"]);
   close(dy.nhler, probabilities(SPEC, "F", 0, dy.pts82, dy.wjc, dy.wjcAge).nhler);
   assert.ok(dy.nhler > probabilities(SPEC, "F", 0, dy.pts82).nhler);   // 23 points in 7 games helps

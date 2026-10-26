@@ -77,6 +77,7 @@ TABLES = {
     "ahl": ("ahl", "na"), "echl": ("echl", "na"), "ushl": ("ushl", "na"), "bchl": ("bchl", "na"),
     "ajhl": ("ajhl", "na"), "sjhl": ("sjhl", "na"), "mjhl": ("mjhl", "na"), "ojhl": ("ojhl", "na"),
     "cchl": ("cchl", "na"), "mjahl": ("mjahl", "na"), "kijhl": ("kijhl", "na"), "vijhl": ("vijhl", "na"),
+    "gohl": ("gohl", "na"), "csshl": ("csshl", "na"),
     "shl": ("shl", "se"), "hockeyallsvenskan": ("allsvenskan", "se"),
     "liiga": ("liiga", "fi"), "mestis": ("mestis", "fi"), "suomi-sarja": ("suomi-sarja", "fi"),
     "u20-sm-sarja": ("u20-sm-sarja", "fi"), "u18-sm-sarja": ("u18-sm-sarja", "fi"),

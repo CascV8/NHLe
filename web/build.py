@@ -86,6 +86,7 @@ def model_spec():
         "events": sorted({e.lower() for e in fit["EVENTS"]} | EP_EVENTS),
         "min_gp": fit["MIN_GP"],
         "min_coverage": fit["MIN_COVERAGE"],
+        "po_weight": fit["PO_WEIGHT"],
         "wjc_age_center": fit["WJC_AGE_CENTER"],
         "star_top": round((1 - fit["STAR_PCT"]) * 100),
         "star_thresholds": coef["star_thresholds"],

@@ -33,13 +33,13 @@ import sys
 # For the WJC-20, PLAYED and PER_PTS82 each also move by *_WJC_AGE per year of
 # age at the tournament (Jan 1) away from WJC_AGE_CENTER: making an under-20
 # team at 17 says more than making it at 19.
-NHLER_INTERCEPT = -3.468816
-NHLER_COEF      =  0.192618
+NHLER_INTERCEPT = -3.465770
+NHLER_COEF      =  0.192700
 NHLER_WJC       = {}
 NHLER_WJC_AGE   = {}
 
-STAR_INTERCEPT  = -5.612836
-STAR_COEF       =  0.160974
+STAR_INTERCEPT  = -5.603370
+STAR_COEF       =  0.160715
 STAR_WJC        = {}
 STAR_WJC_AGE    = {}
 
@@ -89,6 +89,9 @@ LEAGUE_FACTORS = {
 }
 TOURNAMENTS = ()
 KNOWN_OUTCOMES = True
+# A playoff game counts as this many regular-season games in pts/82: playoff
+# points against playoff teams are worth a little more (fit by training/fit.py).
+PO_WEIGHT = 1.25
 
 
 def parse_league(raw):
@@ -136,9 +139,13 @@ def p_star(pts82, wjc=None, age=None):
     return min(1.0 / (1.0 + math.exp(-lo)), p_nhler(pts82, wjc, age))
 
 
+def weight(stint):
+    return PO_WEIGHT if stint["kind"] == "po" else 1.0
+
+
 def compute_pts82(stints):
-    total_nhle_pts = sum(s["pts"] * s["factor"] for s in stints)
-    total_gp       = sum(s["gp"] for s in stints)
+    total_nhle_pts = sum(s["pts"] * s["factor"] * weight(s) for s in stints)
+    total_gp       = sum(s["gp"] * weight(s) for s in stints)
     return (total_nhle_pts / total_gp) * 82 if total_gp > 0 else 0.0
 
 
@@ -167,8 +174,8 @@ def show_result(pts82, stints=None, wjc_stints=(), known_nhler=False, known_star
             print(f"  {tag}  {s['league_key'].upper():<14}"
                   f"{s['pts']:>5.1f}pts/{s['gp']:>4.1f}gp "
                   f"({s['pts'] / s['gp']:.3f} PPG) × {s['factor']:.4f}")
-        total_nhle = sum(s["pts"] * s["factor"] for s in stints)
-        total_gp   = sum(s["gp"] for s in stints)
+        total_nhle = sum(s["pts"] * s["factor"] * weight(s) for s in stints)
+        total_gp   = sum(s["gp"] * weight(s) for s in stints)
         print(f"  {'─' * 52}")
         print(f"  Total NHLe pts    : {total_nhle:.3f} over {total_gp:.1f} GP")
     print(f"  NHL pts / 82      : {pts82:.1f}")

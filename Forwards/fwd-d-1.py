@@ -34,15 +34,15 @@ import sys
 # For the WJC-20, PLAYED and PER_PTS82 each also move by *_WJC_AGE per year of
 # age at the tournament (Jan 1) away from WJC_AGE_CENTER: making an under-20
 # team at 17 says more than making it at 19.
-NHLER_INTERCEPT = -1.784127
-NHLER_COEF      =  0.162078
-NHLER_WJC       = {"wjc-18": (0.472673, 0.038014), "wjc-20": (0.668028, 0.011440)}
-NHLER_WJC_AGE   = {"wjc-20": (-0.221889, -0.003602)}
+NHLER_INTERCEPT = -1.786633
+NHLER_COEF      =  0.163310
+NHLER_WJC       = {"wjc-18": (0.474310, 0.037608), "wjc-20": (0.668575, 0.011535)}
+NHLER_WJC_AGE   = {"wjc-20": (-0.222582, -0.003369)}
 
-STAR_INTERCEPT  = -4.315046
-STAR_COEF       =  0.269982
-STAR_WJC        = {"wjc-18": (-0.040600, 0.050725), "wjc-20": (0.053747, 0.055361)}
-STAR_WJC_AGE    = {"wjc-20": (-0.663140, 0.007349)}
+STAR_INTERCEPT  = -4.323663
+STAR_COEF       =  0.272208
+STAR_WJC        = {"wjc-18": (-0.040868, 0.050232), "wjc-20": (0.053233, 0.055643)}
+STAR_WJC_AGE    = {"wjc-20": (-0.667931, 0.007830)}
 
 WJC_AGE_CENTER  = 19.0
 WJC_AGE_TYPICAL = 17.3   # median age at the WJC-20 for this season, the default
@@ -92,6 +92,9 @@ LEAGUE_FACTORS = {
 }
 TOURNAMENTS = ('wjc-18', 'wjc-20')
 KNOWN_OUTCOMES = False
+# A playoff game counts as this many regular-season games in pts/82: playoff
+# points against playoff teams are worth a little more (fit by training/fit.py).
+PO_WEIGHT = 1.25
 
 
 def parse_league(raw):
@@ -139,9 +142,13 @@ def p_star(pts82, wjc=None, age=None):
     return min(1.0 / (1.0 + math.exp(-lo)), p_nhler(pts82, wjc, age))
 
 
+def weight(stint):
+    return PO_WEIGHT if stint["kind"] == "po" else 1.0
+
+
 def compute_pts82(stints):
-    total_nhle_pts = sum(s["pts"] * s["factor"] for s in stints)
-    total_gp       = sum(s["gp"] for s in stints)
+    total_nhle_pts = sum(s["pts"] * s["factor"] * weight(s) for s in stints)
+    total_gp       = sum(s["gp"] * weight(s) for s in stints)
     return (total_nhle_pts / total_gp) * 82 if total_gp > 0 else 0.0
 
 
@@ -170,8 +177,8 @@ def show_result(pts82, stints=None, wjc_stints=(), known_nhler=False, known_star
             print(f"  {tag}  {s['league_key'].upper():<14}"
                   f"{s['pts']:>5.1f}pts/{s['gp']:>4.1f}gp "
                   f"({s['pts'] / s['gp']:.3f} PPG) × {s['factor']:.4f}")
-        total_nhle = sum(s["pts"] * s["factor"] for s in stints)
-        total_gp   = sum(s["gp"] for s in stints)
+        total_nhle = sum(s["pts"] * s["factor"] * weight(s) for s in stints)
+        total_gp   = sum(s["gp"] * weight(s) for s in stints)
         print(f"  {'─' * 52}")
         print(f"  Total NHLe pts    : {total_nhle:.3f} over {total_gp:.1f} GP")
     print(f"  NHL pts / 82      : {pts82:.1f}")

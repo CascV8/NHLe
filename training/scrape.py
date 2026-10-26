@@ -10,6 +10,9 @@ Scrape the training data for the NHLe models with puckscrape.
                           NHLe factors in training/network.py
   data/hockeydb/*.csv     HockeyDB rosters (ps.hockeydb) for the KHL, VHL, MHL,
                           Slovakia and NAHL and the leagues they trade players with
+  data/ep/*.csv           Elite Prospects tables for the same leagues plus the WJC-20
+                          (ep_id, player, team, gp, pts; skaters, regular season).
+                          Not fetched here: supplied separately.
 
 Elite Prospects would be the natural source for prospect stats, but it answers
 puckscrape with 403s. The NHL landing pages carry the same league-by-league

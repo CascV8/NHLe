@@ -30,6 +30,8 @@ Data (training/scrape.py):
                    Slovakia and NAHL, whose own sites are blocked or missing, and
                    the leagues their players move to and from. HockeyDB ids link
                    stints exactly; only pairs with one of those five are used.
+  ep/*.csv         Elite Prospects tables for the same leagues plus the WJC-20,
+                   linked by Elite Prospects id under the same rule.
   tables/*.csv     league-website tables (puckscrape.leagues): the players who
                    never got an NHL id (AHL/ECHL lifers, Allsvenskan, Mestis,
                    U20 leagues...). Linked by name within a season, only between
@@ -152,16 +154,24 @@ HOCKEYDB = {"khl": "khl", "vhl": "vhl", "mhl": "mhl", "slovakia": "slovakia", "n
 HOCKEYDB_TARGETS = {"khl", "vhl", "mhl", "slovakia", "nahl"}
 
 
-def hockeydb_stints(landing, names):
-    """HockeyDB rosters, one row per HockeyDB id, season and league (team splits
-    summed). Players with an NHL id are left to the landings."""
+# Elite Prospects tables (data/ep/{league}_{year}.csv: ep_id, player, team, gp, pts,
+# skaters only) for the same leagues plus the WJC-20; the same rule applies.
+EP = {k: k for k in ("khl", "vhl", "mhl", "slovakia", "nahl", "wjc-20", "czechia", "liiga", "shl",
+                     "nl", "del", "ushl", "bchl", "ajhl", "sjhl", "mjhl", "ojhl")}
+EP_TARGETS = {"khl", "vhl", "mhl", "slovakia", "nahl", "wjc-20"}
+
+
+def id_stints(folder, codes, id_col, prefix, landing, names, skaters=lambda df: df):
+    """Rows from a source with its own player ids (HockeyDB, Elite Prospects),
+    one per id, season and league (team splits summed). Players with an NHL id
+    are left to the landings."""
     frames = []
-    for path in sorted((DATA / "hockeydb").glob("*.csv")):
+    for path in sorted((DATA / folder).glob("*.csv")):
         code, y = path.stem.rsplit("_", 1)
-        if code not in HOCKEYDB or int(y) not in SEASONS:
+        if code not in codes or int(y) not in SEASONS:
             continue
-        df = pd.read_csv(path, usecols=["pid", "player", "pos", "gp", "pts"])
-        frames.append(df[df.pos != "G"].assign(season=int(y), league=HOCKEYDB[code]))
+        df = skaters(pd.read_csv(path))
+        frames.append(df[[id_col, "player", "gp", "pts"]].assign(season=int(y), league=codes[code]))
     if not frames:
         return pd.DataFrame(columns=["player", "season", "league", "gp", "pts"])
     h = pd.concat(frames, ignore_index=True)
@@ -170,9 +180,17 @@ def hockeydb_stints(landing, names):
     lid = landing.merge(names[["player", "key"]], on="player")
     known = set(zip(lid.key, lid.season))
     h = h[[(n, y) not in known for n, y in zip(h.name, h.season)]]
-    h = h.groupby(["pid", "season", "league"], as_index=False)[["gp", "pts"]].sum()
-    h["player"] = "h" + h.pid.astype(str)
+    h = h.groupby([id_col, "season", "league"], as_index=False)[["gp", "pts"]].sum()
+    h["player"] = prefix + h[id_col].astype(str)
     return h[["player", "season", "league", "gp", "pts"]]
+
+
+def hockeydb_stints(landing, names):
+    return id_stints("hockeydb", HOCKEYDB, "pid", "h", landing, names, skaters=lambda df: df[df.pos != "G"])
+
+
+def ep_stints(landing, names):
+    return id_stints("ep", EP, "ep_id", "e", landing, names)
 
 
 # ── Pairs and the solve ──────────────────────────────────────────────────────
@@ -294,11 +312,14 @@ def main():
     landing, names = landing_stints()
     tables = table_stints(landing, names)
     hdb = hockeydb_stints(landing, names)
-    stints = pd.concat([landing, tables, hdb], ignore_index=True)
+    ep = ep_stints(landing, names)
+    stints = pd.concat([landing, tables, hdb, ep], ignore_index=True)
     stints[["gp", "pts"]] = stints[["gp", "pts"]].astype(float)
     pairs = pair_rows(stints)
-    from_hdb = pairs.player.str[0] == "h"
-    pairs = pairs[~from_hdb | pairs.league_a.isin(HOCKEYDB_TARGETS) | pairs.league_b.isin(HOCKEYDB_TARGETS)]
+    # HockeyDB and Elite Prospects pairs count only with one of the leagues they're here for
+    for prefix, targets in (("h", HOCKEYDB_TARGETS), ("e", EP_TARGETS)):
+        mine = pairs.player.str[0] == prefix
+        pairs = pairs[~mine | pairs.league_a.isin(targets) | pairs.league_b.isin(targets)]
     g, per = usable(pool(pairs))
     factors = solve(g)
     wls = solve_wls(g)
@@ -335,6 +356,8 @@ def main():
                    "paths": [[c, round(sh, 4), round(v, 6)] for c, sh, v in paths.get(lg, [])],
                    "players": int(per.get(lg, 0)),
                    "nhl_direct": direct_n.get(lg, 0), "links": int(len(lg_pairs)),
+                   "from_ep": int(pairs[(pairs.player.str[0] == "e") &
+                                        ((pairs.league_a == lg) | (pairs.league_b == lg))].shape[0]),
                    "from_hockeydb": int(pairs[(pairs.player.str[0] == "h") &
                                               ((pairs.league_a == lg) | (pairs.league_b == lg))].shape[0]),
                    "from_tables": int(pairs[(pairs.player.str[0] == "t") &
@@ -364,15 +387,16 @@ def write_report(meta, out, g):
              "the factor then uses every connection a league has. `WLS` is a log-space least-squares solve over the same "
              "pairs, as a cross-check. `±` is the bootstrap standard error of the log factor (0.05 ≈ ±5%). "
              "`Players` counts shared player-seasons across the league's pairs, `NHL direct` those shared with the NHL, "
-             "`from sites` those that came from league-website tables and `from HockeyDB` those from HockeyDB rosters, "
+             "`from sites` those that came from league-website tables, `from EP` from Elite Prospects tables and "
+             "`from HockeyDB` from HockeyDB rosters, "
              "rather than NHL career histories.", "",
-             "| # | League | Factor | ± | 1st | WLS | Old | Players | NHL direct | Pairs | From sites | From HockeyDB | Biggest paths (share → NHLe via it) |",
-             "|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
+             "| # | League | Factor | ± | 1st | WLS | Old | Players | NHL direct | Pairs | From sites | From EP | From HockeyDB | Biggest paths (share → NHLe via it) |",
+             "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
     for lg, r in out.items():
         o = f"{old[lg]:.3f}" if lg in old else "–"
         top = ", ".join(f"{c} {sh:.0%} → {v:.3f}" for c, sh, v in r["paths"][:4])
         lines.append(f"| {r['solved']} | {lg} | {r['factor']:.3f} | {r['log_se']:.3f} | {r['first_pass']:.3f} | {r['wls']:.3f} | {o} | {r['players']:,} | "
-                     f"{r['nhl_direct']:,} | {r['links']} | {r['from_tables']:,} | {r['from_hockeydb']:,} | {top} |")
+                     f"{r['nhl_direct']:,} | {r['links']} | {r['from_tables']:,} | {r['from_ep']:,} | {r['from_hockeydb']:,} | {top} |")
     lines += ["", "Re-run with `python training/scrape.py`, `python training/network.py`, then `python training/fit.py --write`.", ""]
     (HERE / "NETWORK.md").write_text("\n".join(lines), encoding="utf-8")
 

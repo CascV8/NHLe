@@ -460,7 +460,7 @@ function renderDraft() {
     const divider = !byOutcome && p.round !== round ? `<tr class="round"><td colspan="${cols}">Round ${(round = p.round)}</td></tr>` : "";
     const o = outcomes.get(p.id);
     const outcome = !o ? '<td class="pct dim">…</td><td class="pct dim">…</td><td class="l"></td>'
-      : o.nhler == null ? '<td class="pct">–</td><td class="pct">–</td><td class="l dim">no rated season</td>'
+      : o.nhler == null ? '<td class="pct">–</td><td class="pct">–</td><td class="l dim" title="No rated season yet">–</td>'
       : pctCell(o.star, "--star") + pctCell(o.nhler, "--nhler") + `<td class="l dim">${esc(o.label)}</td>`;
     return divider + row([[p.overall], [pickBtn(p), 1], [esc(p.pos), 1], [esc(p.team), 1],
       [`${esc(p.club)} <span class="dim">${esc(p.league)}</span>`, 1], [esc(p.nation), 1]]).replace("</tr>", outcome + "</tr>");

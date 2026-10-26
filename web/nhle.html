@@ -116,8 +116,6 @@ tbody tr:hover { background: var(--track); }
   border: 2px solid var(--surface); }
 .val { position: absolute; transform: translate(-50%, -100%); margin-top: -10px; text-align: center; white-space: nowrap;
   font: 700 1rem/1 var(--display); font-variant-numeric: tabular-nums; }
-.val small { display: block; margin-top: 2px; font: 600 .62rem/1 var(--display); color: var(--muted); }
-.dot.raw { background: var(--surface); border: 2px solid var(--nhle); opacity: .8; }   /* league play only, below a WJC-adjusted point */
 .lg { position: absolute; bottom: 6px; transform: translateX(-50%); max-width: 13.5%; text-align: center; font: 600 .72rem/1.15 var(--display);
   letter-spacing: .05em; text-transform: uppercase; color: var(--muted); overflow-wrap: anywhere; }
 /* League logos are drawn transparent, straight on the card. The site is dark-only, so dark single-colour marks
@@ -295,7 +293,7 @@ function renderCard(p, c) {
   // NHLe line: columns centred at (i + .5) / 7; the top of the scale leaves room for the value labels.
   const played = c.seasons.filter(s => s.played);
   const shown = s => s.adjPts82 ?? s.pts82;   // the line includes the WJC, as NHLe (see nhle.js)
-  const top = Math.max(10, ...played.map(s => Math.max(s.pts82, shown(s)))) * 1.45;
+  const top = Math.max(10, ...played.map(shown)) * 1.45;
   const x = i => (i + .5) / 7 * 100, y = v => 100 - v / top * 72 - 22;   // % of the box; 22% at the bottom for league logos
   const pts = c.seasons.map((s, i) => s.played ? `${x(i)},${y(shown(s))}` : null);
   const segs = []; let cur = [];
@@ -305,9 +303,8 @@ function renderCard(p, c) {
       <line x1="0" x2="100" y1="${y(0)}" y2="${y(0)}" stroke="var(--line)" vector-effect="non-scaling-stroke"/>
       ${segs.map(sg => `<polyline points="${sg.join(" ")}" fill="none" stroke="var(--nhle)" stroke-width="3" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>`).join("")}</svg>
     ${c.seasons.map((s, i) => s.played
-      ? `${s.adjPts82 != null ? `<span class="dot raw" style="left:${x(i)}%;top:${y(s.pts82)}%" title="League play: ${s.pts82.toFixed(1)}"></span>` : ""}
-         <span class="dot" style="left:${x(i)}%;top:${y(shown(s))}%"></span>
-         <span class="val" style="left:${x(i)}%;top:${y(shown(s))}%"${s.adjPts82 != null ? ` title="${s.pts82.toFixed(1)} in league play, ${s.wjcPts82 >= 0 ? "+" : ""}${s.wjcPts82.toFixed(1)} for the World Juniors"` : ""}>${shown(s).toFixed(1)}${s.adjPts82 != null ? `<small>${s.pts82.toFixed(1)} ${s.wjcPts82 >= 0 ? "+" : "−"} ${Math.abs(s.wjcPts82).toFixed(1)} WJC</small>` : ""}</span>
+      ? `<span class="dot" style="left:${x(i)}%;top:${y(shown(s))}%"></span>
+         <span class="val" style="left:${x(i)}%;top:${y(shown(s))}%"${s.adjPts82 != null ? ` title="${s.pts82.toFixed(1)} in league play, ${s.wjcPts82 >= 0 ? "+" : ""}${s.wjcPts82.toFixed(1)} for the World Juniors"` : ""}>${shown(s).toFixed(1)}</span>
          ${leagueTag(s, x(i))}`
       : `<span class="none" style="left:${x(i)}%">—</span>`).join("")}
     <span class="ax">NHLe pts/82</span>`;
@@ -457,7 +454,7 @@ $("notes").innerHTML = `
     seven games would barely register: making the team and scoring there are their own terms in the model, and
     at the WJC-20 they count for more the younger the player is. On the line, a season with a World Juniors is
     plotted at its league NHLe plus the WJC's effect expressed in the same pts/82 (the league rate that would give
-    the same NHLer odds without it); the hollow dot is league play alone. A star is
+    the same NHLer odds without it). The table below splits it into league play and the WJC. A star is
     peak GAR (best 3 seasons) in the top ${SPEC.star_top}% at the position,
     ${SPEC.star_thresholds.F.toFixed(1)}+ for forwards (${esc(SPEC.star_examples.F.slice(0, 3).join(", "))}) and
     ${SPEC.star_thresholds.D.toFixed(1)}+ for defensemen (${esc(SPEC.star_examples.D.slice(0, 3).join(", "))}).

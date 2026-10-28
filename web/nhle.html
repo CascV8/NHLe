@@ -98,7 +98,7 @@ tr.round td { z-index: 1; }
 .card-tools button:hover { background: var(--track); }
 .card-tools button:disabled { opacity: .6; cursor: progress; }
 /* While a card is drawn into a PNG: its season table at full size, no scrollbars. */
-.card.capturing .table { overflow: visible; max-height: none; max-width: none; width: auto; }
+.card.capturing .detail { display: none; }   /* the downloaded image leaves out the season table */
 .gen b { display: block; font: 700 2.3rem/1 var(--display); font-variant-numeric: tabular-nums; }
 .gen span { font: 600 .74rem var(--display); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: .82rem; color: var(--muted); padding: 10px 16px 0; }
@@ -415,8 +415,8 @@ async function downloadCard(button) {
     }
     const bg = getComputedStyle(document.body).backgroundColor;
     card.classList.add("capturing");
-    const url = await htmlToImage.toPng(card, { pixelRatio: 2, backgroundColor: bg, cacheBust: false, fontEmbedCSS: await embeddedFonts().catch(() => undefined),
-      width: Math.max(card.offsetWidth, card.scrollWidth) });
+    // The image is the card without its season-by-season table (.capturing hides it): header, bars and NHLe line
+    const url = await htmlToImage.toPng(card, { pixelRatio: 2, backgroundColor: bg, cacheBust: false, fontEmbedCSS: await embeddedFonts().catch(() => undefined) });
     const a = Object.assign(document.createElement("a"), { href: url,
       download: `${button.dataset.name.replace(/[^\w-]+/g, "-").replace(/^-|-$/g, "")}-nhle.png` });
     a.click();

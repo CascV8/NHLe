@@ -64,9 +64,9 @@ def model_spec():
             "script": script,
             "nhler": [m["nhler"]["intercept"], m["nhler"]["coef"]],
             "star": [m["star"]["intercept"], m["star"]["coef"]],
-            # The curve each coefficient multiplies: "linear" pts/82, "log" log(1 + pts/82) or "sqrt"
+            # The curve each coefficient multiplies: "linear" pts/84, "log" log(1 + pts/84) or "sqrt"
             "shape": {"nhler": m["nhler"].get("shape", "linear"), "star": m["star"].get("shape", "linear")},
-            # World Juniors terms: {tournament: [played, per NHLe pts/82 there]}
+            # World Juniors terms: {tournament: [played, per NHLe pts/84 there]}
             "wjc": {"nhler": m["nhler"].get("wjc", {}), "star": m["star"].get("wjc", {})},
             # WJC-20 slopes per year of age at the tournament, from fit["WJC_AGE_CENTER"]
             "wjc_age": {"nhler": m["nhler"].get("wjc_age", {}), "star": m["star"].get("wjc_age", {})},
@@ -90,9 +90,11 @@ def model_spec():
         "min_coverage": fit["MIN_COVERAGE"],
         "po_weight": coef.get("po_weight", fit["PO_WEIGHT"]),   # per position
         "wjc_age_center": fit["WJC_AGE_CENTER"],
-        "star_top": round((1 - fit["STAR_PCT"]) * 100),
-        "star_thresholds": coef["star_thresholds"],
+        # The Pareto group's share of regulars per position, examples near the line, and every confirmed
+        # star: NHL id -> the season (start year) of his first star season (training/stars.json).
+        "star_share": coef["star_share"],
         "star_examples": coef["star_examples"],
+        "stars": json.loads((ROOT / "training" / "stars.json").read_text(encoding="utf-8"))["stars"],
         "models": models,
         # League logos for the card, by league key (web/logos/fetch.py and logos.json); a league without one keeps
         # its text label. invert: a dark single-colour mark, inverted on the dark theme so it stays visible.

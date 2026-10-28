@@ -315,13 +315,13 @@ function renderCard(p, c) {
     const star = s.star, nh = s.nhler - s.star, bust = 1 - s.nhler;
     const seg = (cls, v, lab) => `<div class="${cls}" style="height:${(v * 100).toFixed(2)}%" title="${lab}: ${pct(v)}">${v >= .06 ? pct(v) : ""}</div>`;
     return `<div class="stack${s.inProgress ? " live" : ""}">${seg("s", star, "Star")}${seg("n", nh, "NHLer, not a star")}${seg("b", bust, "Bust")}
-      ${s.known ? `<span class="known">200 GP</span>` : ""}</div>`;
+      ${s.starKnown ? `<span class="known">Star</span>` : s.known ? `<span class="known">200 GP</span>` : ""}</div>`;
   }).join("");
   const labels = c.seasons.map(s => `<div><b>${s.label}</b><span>${seasonName(s.year)}${s.inProgress ? "*" : ""}</span></div>`).join("");
 
   // NHLe line: columns centred at (i + .5) / 7; the top of the scale leaves room for the value labels.
   const played = c.seasons.filter(s => s.played);
-  const shown = s => s.adjPts82 ?? s.pts82;   // the line includes the WJC, as NHLe (see nhle.js)
+  const shown = s => s.adjPts84 ?? s.pts84;   // the line includes the WJC, as NHLe (see nhle.js)
   const top = Math.max(10, ...played.map(shown)) * 1.45;
   const x = i => (i + .5) / 7 * 100, y = v => 100 - v / top * 72 - 22;   // % of the box; 22% at the bottom for league logos
   const pts = c.seasons.map((s, i) => s.played ? `${x(i)},${y(shown(s))}` : null);
@@ -333,10 +333,10 @@ function renderCard(p, c) {
       ${segs.map(sg => `<polyline points="${sg.join(" ")}" fill="none" stroke="var(--nhle)" stroke-width="3" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>`).join("")}</svg>
     ${c.seasons.map((s, i) => s.played
       ? `<span class="dot" style="left:${x(i)}%;top:${y(shown(s))}%"></span>
-         <span class="val" style="left:${x(i)}%;top:${y(shown(s))}%"${s.adjPts82 != null ? ` title="${s.pts82.toFixed(1)} in league play, ${s.wjcPts82 >= 0 ? "+" : ""}${s.wjcPts82.toFixed(1)} for the World Juniors"` : ""}>${shown(s).toFixed(1)}</span>
+         <span class="val" style="left:${x(i)}%;top:${y(shown(s))}%"${s.adjPts84 != null ? ` title="${s.pts84.toFixed(1)} in league play, ${s.wjcPts84 >= 0 ? "+" : ""}${s.wjcPts84.toFixed(1)} for the World Juniors"` : ""}>${shown(s).toFixed(1)}</span>
          ${leagueTag(s, x(i))}`
       : `<span class="none" style="left:${x(i)}%">—</span>`).join("")}
-    <span class="ax">NHLe pts/82</span>`;
+    <span class="ax">NHLe pts/84</span>`;
 
   const detail = c.seasons.flatMap(s => s.rows.length ? s.rows.map((r, j) => `<tr class="${j === 0 ? "sep" : ""}">
       <td class="l">${j === 0 ? `<b>${s.label}</b> <span class="dim">${seasonName(s.year)}</span>` : ""}</td>
@@ -345,9 +345,9 @@ function renderCard(p, c) {
       <td>${r.gp}</td><td>${r.pts}</td>
       <td class="${r.used ? "" : "off"}">${r.used ? r.factor.toFixed(3) : r.why || "no games"}</td>
       <td>${r.used ? (r.pts * r.factor).toFixed(1) : ""}</td>
-      ${j === 0 ? `<td rowspan="${s.rows.length}"><b>${s.played ? shown(s).toFixed(1) : "–"}</b>${s.adjPts82 != null
-          ? `<br><span class="dim">${s.pts82.toFixed(1)} + ${s.wjcPts82.toFixed(1)} WJC</span>` : ""}</td>
-        <td rowspan="${s.rows.length}">${s.nhler != null ? `${pct(s.star)} / ${pct(s.nhler)}${s.known ? "†" : ""}` : s.unrated ? `<span class="dim">not rated: ${esc(s.unrated)}</span>` : "–"}</td>` : ""}
+      ${j === 0 ? `<td rowspan="${s.rows.length}"><b>${s.played ? shown(s).toFixed(1) : "–"}</b>${s.adjPts84 != null
+          ? `<br><span class="dim">${s.pts84.toFixed(1)} + ${s.wjcPts84.toFixed(1)} WJC</span>` : ""}</td>
+        <td rowspan="${s.rows.length}">${s.nhler != null ? `${pct(s.star)} / ${pct(s.nhler)}${s.starKnown ? "‡" : s.known ? "†" : ""}` : s.unrated ? `<span class="dim">not rated: ${esc(s.unrated)}</span>` : "–"}</td>` : ""}
     </tr>`) : []).join("");
 
   return `<div class="card-tools"><button type="button" class="dl-card" data-name="${esc(p.name)}">Download PNG</button></div>
@@ -360,18 +360,18 @@ function renderCard(p, c) {
       <div class="gen">${L ? `<b>${seasonName(L.year)}</b><span>${L.label} · ${pct(L.star)} star · ${pct(L.nhler)} NHLer</span>`
         : `<span>No seasons in a league with an NHLe factor yet</span>`}</div>
     </div>
-    <div class="legend"><span><i style="background:var(--star)"></i>Star (top ${SPEC.star_top}% peak GAR)</span>
+    <div class="legend"><span><i style="background:var(--star)"></i>Star (an xG star season)</span>
       <span><i style="background:var(--nhler)"></i>NHLer (200+ GP)</span><span><i style="background:var(--bust)"></i>Bust</span></div>
     <div class="cols bars">${bars}</div>
     <div class="cols labels">${labels}</div>
     <div class="line">${line}</div>
     <div class="detail"><div class="table" style="max-height:none"><table>
       <thead><tr><th class="l">Season</th><th class="l">League</th><th class="l">Team</th><th>GP</th><th>PTS</th>
-        <th>Factor</th><th>NHLe pts</th><th>Pts/82</th><th>Star / NHLer</th></tr></thead>
+        <th>Factor</th><th>NHLe pts</th><th>Pts/84</th><th>Star / NHLer</th></tr></thead>
       <tbody>${detail || `<tr><td class="l msg" colspan="9">No seasons between ${seasonName(c.draftYear - 2)} and ${seasonName(c.draftYear + 4)}.</td></tr>`}</tbody>
     </table></div></div>
   </article>
-  <p class="dim" style="font-size:.84rem;margin:0">${played.some(s => s.inProgress) ? "* Season in progress: a few games swing pts/82 a lot. " : ""}${played.some(s => s.known) ? "† Already 200 NHL games, so NHLer is 100%. " : ""}Source: ${p.src === "ep" ? "Elite Prospects" : "NHL"}.</p>`;
+  <p class="dim" style="font-size:.84rem;margin:0">${played.some(s => s.inProgress) ? "* Season in progress: a few games swing pts/84 a lot. " : ""}${played.some(s => s.known && !s.starKnown) ? "† Already 200 NHL games, so NHLer is 100%. " : ""}${played.some(s => s.starKnown) ? "‡ Has had a star season by on-ice xG, so star is 100%. " : ""}Source: ${p.src === "ep" ? "Elite Prospects" : "NHL"}.</p>`;
 }
 
 // Download the card as a PNG (html-to-image, loaded on first use). Photos from other sites are swapped for copies
@@ -615,18 +615,21 @@ $("league-season").innerHTML = years.map(y => `<option value="${y}">${seasonName
 $("league").innerHTML = LEAGUES.map(([slug, name]) => `<option value="${slug}">${esc(name)}</option>`).join("");
 $("notes").innerHTML = `
   <p><b>How it works.</b> Each season's points, from every league with an NHL-equivalency factor (regular season and playoffs),
-    are scaled by that league's factor and turned into a rate per 82 games. The factors are network NHLe: solved together from
+    are scaled by that league's factor and turned into a rate per 84 games. The factors are network NHLe: solved together from
     every player who played in two leagues in the same season. A
     logistic model per position and draft-relative season (D-1 is the year before the draft, DY the draft year) turns that
     rate into the chance of becoming an NHLer (200+ games) and a star. The World Juniors aren't pooled into the rate, where
     seven games would barely register: making the team and scoring there are their own terms in the model, and
     at the WJC-20 they count for more the younger the player is. On the line, a season with a World Juniors is
-    plotted at its league NHLe plus the WJC's effect expressed in the same pts/82 (the league rate that would give
-    the same NHLer odds without it). The table below splits it into league play and the WJC. A star is
-    peak GAR (best 3 seasons) in the top ${SPEC.star_top}% at the position,
-    ${SPEC.star_thresholds.F.toFixed(1)}+ for forwards (${esc(SPEC.star_examples.F.slice(0, 3).join(", "))}) and
-    ${SPEC.star_thresholds.D.toFixed(1)}+ for defensemen (${esc(SPEC.star_examples.D.slice(0, 3).join(", "))}).
-    Fit on the ${SPEC.classes[0]}-${SPEC.classes[1]} draft classes with Neil Paine's GAR.</p>
+    plotted at its league NHLe plus the WJC's effect expressed in the same pts/84 (the league rate that would give
+    the same NHLer odds without it). The table below splits it into league play and the WJC. A star is a
+    player with a star season by on-ice expected goals (scored with our xG model): his net xG above
+    replacement, at his average 5-on-5 minutes over 84 games, inside that season's Pareto group of regulars
+    at his position (about the top ${Math.round(SPEC.star_share.F * 100)}% of forwards and
+    ${Math.round(SPEC.star_share.D * 100)}% of defensemen; near the line last season:
+    ${esc(SPEC.star_examples.F.slice(0, 2).join(", "))}, ${esc(SPEC.star_examples.D.slice(0, 2).join(", "))}).
+    Once a player has one, his card shows him as a star (100%) from that season on.
+    Fit on the ${SPEC.classes[0]}-${SPEC.classes[1]} draft classes.</p>
   <p>Leagues without a factor (minor hockey, most U18 and high-school leagues) are listed but left out. A season is rated only if it's
     like the ones the models learned from: ${SPEC.min_gp}+ games in rated leagues, and at least half of the season's games in
     them.

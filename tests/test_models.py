@@ -28,9 +28,9 @@ class TestModels(unittest.TestCase):
         for name, m in MODELS.items():
             with self.subTest(model=name):
                 prev_n = prev_s = 0.0
-                for pts82 in range(0, 151):
-                    pn, ps = m.p_nhler(pts82), m.p_star(pts82)
-                    self.assertTrue(0.0 <= ps <= pn <= 1.0, (pts82, pn, ps))
+                for pts84 in range(0, 151):
+                    pn, ps = m.p_nhler(pts84), m.p_star(pts84)
+                    self.assertTrue(0.0 <= ps <= pn <= 1.0, (pts84, pn, ps))
                     self.assertGreaterEqual(pn, prev_n)
                     self.assertGreaterEqual(ps, prev_s)
                     prev_n, prev_s = pn, ps
@@ -71,9 +71,9 @@ class TestModels(unittest.TestCase):
                 self.assertEqual(set(m.STAR_WJC), set(m.TOURNAMENTS))
                 self.assertTrue(set(m.TOURNAMENTS) <= set(m.LEAGUE_FACTORS))
                 for t in m.TOURNAMENTS:
-                    for pts82 in (0, 20, 60):
-                        for wjc82 in (0, 15, 40, 90):
-                            pn, ps = m.p_nhler(pts82, {t: wjc82}), m.p_star(pts82, {t: wjc82})
+                    for pts84 in (0, 20, 60):
+                        for wjc84 in (0, 15, 40, 90):
+                            pn, ps = m.p_nhler(pts84, {t: wjc84}), m.p_star(pts84, {t: wjc84})
                             self.assertTrue(0.0 <= ps <= pn <= 1.0)
                 # A tournament the model doesn't use is ignored, and so is no tournament at all
                 self.assertEqual(m.p_nhler(30, {"not-a-tournament": 50}), m.p_nhler(30))
@@ -93,18 +93,18 @@ class TestCli(unittest.TestCase):
         return subprocess.run([sys.executable, str(path), *args],
                               capture_output=True, timeout=30)
 
-    def test_pts82_flag(self):
+    def test_pts84_flag(self):
         for path in MODEL_PATHS:
             with self.subTest(model=path.name):
-                res = self.run_cli(path, "--pts82", "40")
+                res = self.run_cli(path, "--pts84", "40")
                 self.assertEqual(res.returncode, 0, res.stderr.decode(errors="replace"))
                 self.assertIn("NHL player (200 GP+)", res.stdout.decode("utf-8"))
 
-    def test_pts82_flag_rejects_bad_value(self):
+    def test_pts84_flag_rejects_bad_value(self):
         for path in MODEL_PATHS:
             for bad in ("nan", "-10000"):
                 with self.subTest(model=path.name, value=bad):
-                    res = self.run_cli(path, "--pts82", bad)
+                    res = self.run_cli(path, "--pts84", bad)
                     self.assertNotEqual(res.returncode, 0)
                     self.assertNotIn(b"Traceback", res.stderr)
 

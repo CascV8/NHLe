@@ -59,20 +59,20 @@ test("Bedard's card pools leagues, playoffs and the right World Juniors", () => 
   assert.deepEqual(card.seasons.map(s => s.year), [2021, 2022, 2023, 2024, 2025, 2026, 2027]);
   const [d1, dy, dp1, dp2, dp3, dp4, dp5] = card.seasons;
   const f = SPEC.factors;
-  // D-1 (2021-22): WHL in pts/82; the WJC-18 and WJC-20 are their own terms, not pooled.
-  close(d1.pts82, 100 * f.whl / 62 * 82);
-  close(d1.wjc["wjc-18"], 7 * f["wjc-18"] / 4 * 82);
-  close(d1.wjc["wjc-20"], 8 * f["wjc-20"] / 7 * 82);
+  // D-1 (2021-22): WHL in pts/84; the WJC-18 and WJC-20 are their own terms, not pooled.
+  close(d1.pts84, 100 * f.whl / 62 * 84);
+  close(d1.wjc["wjc-18"], 7 * f["wjc-18"] / 4 * 84);
+  close(d1.wjc["wjc-20"], 8 * f["wjc-20"] / 7 * 84);
   close(d1.wjcAge, (Date.UTC(2022, 0, 1) - Date.parse("2005-07-17")) / (365.25 * 86400e3));   // 16 at that WJC-20
-  close(d1.nhler, probabilities(SPEC, "F", -1, d1.pts82, d1.wjc, d1.wjcAge).nhler);
+  close(d1.nhler, probabilities(SPEC, "F", -1, d1.pts84, d1.wjc, d1.wjcAge).nhler);
   // Draft year: WHL regular season + playoffs, plus the WJC-20 term.
   const w = SPEC.po_weight.F;   // a playoff game counts as w regular-season games (forwards)
-  close(dy.pts82, (143 + 20 * w) * f.whl / (57 + 7 * w) * 82);
+  close(dy.pts84, (143 + 20 * w) * f.whl / (57 + 7 * w) * 84);
   assert.deepEqual(Object.keys(dy.wjc), ["wjc-20"]);
-  close(dy.nhler, probabilities(SPEC, "F", 0, dy.pts82, dy.wjc, dy.wjcAge).nhler);
-  assert.ok(dy.nhler > probabilities(SPEC, "F", 0, dy.pts82).nhler);   // 23 points in 7 games helps
+  close(dy.nhler, probabilities(SPEC, "F", 0, dy.pts84, dy.wjc, dy.wjcAge).nhler);
+  assert.ok(dy.nhler > probabilities(SPEC, "F", 0, dy.pts84).nhler);   // 23 points in 7 games helps
   // D+1 is NHL only (the WC and "International" are events without a factor).
-  close(dp1.pts82, 61 / 68 * 82);
+  close(dp1.pts84, 61 / 68 * 84);
   // 150 NHL games through D+2, 219 through D+3: NHLer becomes a known outcome from D+3.
   assert.ok(!dp2.known && dp2.nhler < 1);
   assert.ok(dp3.known); assert.equal(dp3.nhler, 1);
@@ -82,13 +82,13 @@ test("Bedard's card pools leagues, playoffs and the right World Juniors", () => 
   assert.equal(card.latest, dp3);
 });
 
-test("the World Juniors show on the NHLe line as pts/82 worth the same NHLer odds", () => {
+test("the World Juniors show on the NHLe line as pts/84 worth the same NHLer odds", () => {
   const card = buildCard(SPEC, nhlPlayer(landing), 2026);
   const dy = card.seasons[1], m = SPEC.models.F["0"];
-  close(dy.adjPts82, dy.pts82 + dy.wjcPts82);
+  close(dy.adjPts84, dy.pts84 + dy.wjcPts84);
   // the adjusted rate alone, with no WJC, gives the season's NHLer odds
-  close(probabilities(SPEC, "F", 0, dy.adjPts82).nhler, dy.nhler, 1e-9);
-  assert.equal(card.seasons[5].adjPts82, undefined);   // no WJC, nothing to add
+  close(probabilities(SPEC, "F", 0, dy.adjPts84).nhler, dy.nhler, 1e-9);
+  assert.equal(card.seasons[5].adjPts84, undefined);   // no WJC, nothing to add
   assert.ok(m.nhler[1] > 0);
 });
 
@@ -109,7 +109,7 @@ test("a season mostly in unrated leagues isn't rated", () => {
   assert.equal(card.draftYear, 2027);
   const d1 = card.seasons[0];
   assert.equal(d1.year, 2025);
-  close(d1.pts82, 10 * SPEC.factors.ohl / 20 * 82);
+  close(d1.pts84, 10 * SPEC.factors.ohl / 20 * 84);
   assert.equal(d1.unrated, "most games in leagues without a factor");   // 20 of 50 league games; the event doesn't count
 });
 

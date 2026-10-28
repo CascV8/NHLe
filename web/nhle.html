@@ -374,6 +374,25 @@ function renderCard(p, c) {
   <p class="dim" style="font-size:.84rem;margin:0">${played.some(s => s.inProgress) ? "* Season in progress: a few games swing pts/84 a lot. " : ""}${played.some(s => s.known && !s.starKnown) ? "† Already 200 NHL games, so NHLer is 100%. " : ""}${played.some(s => s.starKnown) ? "‡ Has had a star season by on-ice xG, so star is 100%. " : ""}Source: ${p.src === "ep" ? "Elite Prospects" : "NHL"}.</p>`;
 }
 
+// The page's Google web fonts as inline CSS for html-to-image, which can't read the cross-origin stylesheet
+// itself (the picture would fall back to wider system fonts and clip). Latin subsets only, fetched once.
+let fontCSS = null;
+async function embeddedFonts() {
+  if (fontCSS !== null) return fontCSS;
+  let out = "";
+  for (const link of document.querySelectorAll('link[rel="stylesheet"][href*="fonts.googleapis.com"]')) {
+    const css = await (await fetch(link.href)).text();
+    for (const [, subset, face] of css.matchAll(/\/\* ([\w-]+) \*\/\s*(@font-face\s*\{[^}]*\})/g)) {
+      const url = face.match(/url\((https:[^)]+)\)/)?.[1];
+      if (!url || (subset !== "latin" && subset !== "latin-ext")) continue;
+      const blob = await (await fetch(url)).blob();
+      const data = await new Promise(r => { const f = new FileReader(); f.onload = () => r(f.result); f.readAsDataURL(blob); });
+      out += face.replace(url, data) + "\n";
+    }
+  }
+  return (fontCSS = out);
+}
+
 // Download the card as a PNG (html-to-image, loaded on first use). Photos from other sites are swapped for copies
 // relayed through api/img for the capture, since a canvas can't read images served without CORS headers.
 let htmlToImage = null;
@@ -396,7 +415,7 @@ async function downloadCard(button) {
     }
     const bg = getComputedStyle(document.body).backgroundColor;
     card.classList.add("capturing");
-    const url = await htmlToImage.toPng(card, { pixelRatio: 2, backgroundColor: bg, cacheBust: false,
+    const url = await htmlToImage.toPng(card, { pixelRatio: 2, backgroundColor: bg, cacheBust: false, fontEmbedCSS: await embeddedFonts().catch(() => undefined),
       width: Math.max(card.offsetWidth, card.scrollWidth) });
     const a = Object.assign(document.createElement("a"), { href: url,
       download: `${button.dataset.name.replace(/[^\w-]+/g, "-").replace(/^-|-$/g, "")}-nhle.png` });

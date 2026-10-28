@@ -33,14 +33,14 @@ import sys
 # For the WJC-20, PLAYED and PER_PTS82 each also move by *_WJC_AGE per year of
 # age at the tournament (Jan 1) away from WJC_AGE_CENTER: making an under-20
 # team at 17 says more than making it at 19.
-NHLER_INTERCEPT = -6.130075
-NHLER_COEF      =  2.156358
+NHLER_INTERCEPT = -6.130389
+NHLER_COEF      =  2.154107
 NHLER_SHAPE     = 'log'   # COEF multiplies shape(pts/82): "linear", "log" (log(1+x)) or "sqrt"
 NHLER_WJC       = {}
 NHLER_WJC_AGE   = {}
 
-STAR_INTERCEPT  = -8.290759
-STAR_COEF       =  1.500196
+STAR_INTERCEPT  = -8.294250
+STAR_COEF       =  1.499854
 STAR_SHAPE      = 'sqrt'
 STAR_WJC        = {}
 STAR_WJC_AGE    = {}
@@ -51,45 +51,46 @@ WJC_AGE_TYPICAL = 20.5   # median age at the WJC-20 for this season, the default
 
 LEAGUE_FACTORS = {
     "nhl":           1.000000,
-    "khl":           0.635802,
-    "shl":           0.563550,
+    "khl":           0.639126,
+    "shl":           0.566231,
     "nl":            0.471596,
-    "czechia":       0.437843,
+    "czechia":       0.440633,
     "del":           0.422002,
-    "liiga":         0.407721,
-    "ahl":           0.384527,
-    "vhl":           0.238320,
-    "icehl":         0.229341,
-    "allsvenskan":   0.227353,
-    "slovakia":      0.220392,
+    "liiga":         0.416034,
+    "ahl":           0.384612,
+    "vhl":           0.240959,
+    "icehl":         0.229524,
+    "allsvenskan":   0.227984,
+    "slovakia":      0.220816,
     "ncaa":          0.210347,
-    "czechia2":      0.144651,
-    "echl":          0.135892,
-    "mestis":        0.133372,
+    "czechia2":      0.145619,
+    "mestis":        0.142682,
+    "echl":          0.135897,
     "del2":          0.127676,
+    "ushl":          0.127513,
+    "ohl":           0.124959,
     "sl":            0.123086,
-    "ushl":          0.123065,
-    "ohl":           0.122934,
-    "whl":           0.119090,
-    "qmjhl":         0.113687,
-    "mhl":           0.089900,
-    "u20-sm-sarja":  0.077952,
+    "whl":           0.121465,
+    "qmjhl":         0.115403,
+    "mhl":           0.090229,
+    "u20-sm-sarja":  0.088197,
     "hockeyettan":   0.077522,
-    "bchl":          0.072894,
-    "u20-nationell": 0.072459,
-    "czechia-u20":   0.055844,
-    "nahl":          0.052288,
-    "ajhl":          0.047404,
-    "cchl":          0.046672,
-    "ojhl":          0.041624,
-    "sjhl":          0.039290,
-    "mjahl":         0.031389,
-    "u18-sm-sarja":  0.031263,
-    "mjhl":          0.030221,
-    "gohl":          0.028138,
-    "u18-nationell": 0.026934,
-    "csshl":         0.022830,
-    "kijhl":         0.013706,
+    "bchl":          0.074667,
+    "u20-nationell": 0.073953,
+    "czechia-u20":   0.057781,
+    "nahl":          0.053967,
+    "suomi-sarja":   0.049591,
+    "ajhl":          0.048531,
+    "cchl":          0.047586,
+    "ojhl":          0.042370,
+    "sjhl":          0.040185,
+    "u18-sm-sarja":  0.040145,
+    "mjahl":         0.031891,
+    "mjhl":          0.030916,
+    "gohl":          0.028614,
+    "u18-nationell": 0.027171,
+    "csshl":         0.023165,
+    "kijhl":         0.014033,
 }
 TOURNAMENTS = ()
 KNOWN_OUTCOMES = True

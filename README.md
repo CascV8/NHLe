@@ -1,7 +1,7 @@
 # NHLe
 
 NHL equivalency (NHLe) prospect models. Each model turns a player's season into NHL-equivalent
-points per 82 games, then gives two logistic-regression probabilities:
+points per 84 games, then gives two logistic-regression probabilities:
 
 - **NHL player**: reaches 200 NHL games
 - **Star**: peak GAR (average of best 3 seasons) in the top 24% of NHL skaters at the position
@@ -41,25 +41,25 @@ pip install -r requirements.txt
 | D+3 to D+5 | `Forwards/fwd-d3.py` … `fwd-d5.py` | `Defense/d-d3.py` … `d-d5.py` | none |
 
 Run one interactively and enter each league stint. League splits and playoffs are pooled into a
-single pts/82; the World Juniors are asked for separately:
+single pts/84; the World Juniors are asked for separately:
 
 ```
 python Forwards/fwd-d0.py
 ```
 
-Or skip the prompts if you already have an NHLe pts/82 (no World Juniors):
+Or skip the prompts if you already have an NHLe pts/84 (no World Juniors):
 
 ```
-python Forwards/fwd-d0.py --pts82 25
+python Forwards/fwd-d0.py --pts84 25
 ```
 
 Type `leagues` at any league prompt to list the built-in NHLe factors (42 leagues, from
 [`training/NETWORK.md`](training/NETWORK.md)). You can also enter a custom factor between 0 and 1
 in place of a league name.
 
-The World Juniors aren't pooled into pts/82, where 7 games would barely move 60 games of league
+The World Juniors aren't pooled into pts/84, where 7 games would barely move 60 games of league
 play. Each tournament a model uses is its own fitted term: making the team adds `PLAYED` to the
-log-odds, and scoring there adds `PER_PTS82` per NHLe pts/82 at the tournament. The WJC-20 terms
+log-odds, and scoring there adds `PER_PTS84` per NHLe pts/84 at the tournament. The WJC-20 terms
 also depend on the player's age at the tournament: one line in age per position, fit across D-1
 to D+2, so making an under-20 team at 17 counts for more than at 19
 ([`training/REPORT.md`](training/REPORT.md) lists them all). D+2 to D+5 also ask whether the player has
@@ -130,12 +130,12 @@ python training/fit.py --write # refits all 14 models and regenerates the script
 - **Outcomes:** 200 NHL games, and peak GAR from Neil Paine's data through 2024-25. Later seasons
   use an estimate of his GAR from MoneyPuck stats (R² 0.94–0.95 on held-out seasons), rescaled
   to his league-wide level.
-- **Fit:** one logistic regression per model and outcome on NHLe pts/82 (as a straight line,
-  log(1 + pts/82) or √pts/82, whichever cross-validates best for that model and outcome; forwards
+- **Fit:** one logistic regression per model and outcome on NHLe pts/84 (as a straight line,
+  log(1 + pts/84) or √pts/84, whichever cross-validates best for that model and outcome; forwards
   and defensemen are fit separately throughout, playoff weight included), plus the World Juniors
   terms (lightly ridged, so a tournament with a handful of players in the sample stays near zero).
   [`training/REPORT.md`](training/REPORT.md) lists sample sizes, AUC, and log loss in-sample,
-  leave-one-draft-class-out, with the World Juniors pooled into pts/82 instead, and against the
+  leave-one-draft-class-out, with the World Juniors pooled into pts/84 instead, and against the
   previous coefficients and factors.
 
 ## Credits
@@ -154,5 +154,5 @@ python -m unittest discover -s tests
 ```
 
 The tests check that every model gives valid, monotonic probabilities, that the league-factor
-tables agree across models, that bad input is rejected, and that `--pts82` runs end to end.
+tables agree across models, that bad input is rejected, and that `--pts84` runs end to end.
 `tests/test_web.py` and `node --test web/tests/nhle.test.mjs` check the website against the scripts.

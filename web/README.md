@@ -26,8 +26,8 @@ coefficients (including the World Juniors terms) from `training/coefficients.jso
 with `training/fit.py --write`, push, and the site follows. A season gets probabilities only when it
 passes the same rule the fit used; otherwise the card shows its NHLe and marks it "not rated".
 
-The World Juniors are applied the way the scripts apply them: not pooled into pts/82, but as each
-tournament's own term (made the team, and NHLe pts/82 there). Not applied on the web: the star
+The World Juniors are applied the way the scripts apply them: not pooled into pts/84, but as each
+tournament's own term (made the team, and NHLe pts/84 there). Not applied on the web: the star
 known outcome (it needs GAR). Reaching 200 NHL games does turn NHLer to 100% from D+2 on.
 
 ## Logos and photos

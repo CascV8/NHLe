@@ -2,9 +2,9 @@
 // which web/build.py writes from the scripts, training/fit.py and training/coefficients.json.
 //
 // A season is pooled the way training/fit.py pools it for the fit: regular season and playoffs in
-// every league with a factor, into pts/82 = sum(points x factor) / sum(games) x 82, a playoff game
+// every league with a factor, into pts/84 = sum(points x factor) / sum(games) x 84, a playoff game
 // counting as spec.po_weight[group] games. The World Juniors
-// that model uses are not pooled: each is its own term, played + per_pts82 x (NHLe pts/82 there), and
+// that model uses are not pooled: each is its own term, played + per_pts84 x (NHLe pts/84 there), and
 // for the WJC-20 both move with the player's age at the tournament.
 // A season gets probabilities only if it's one the models were fit on: 10+ regular-season games in
 // rated leagues, and at least half of the season's league games in leagues with a factor
@@ -26,7 +26,7 @@ const isEvent = (spec, name) => {
 };
 
 /**
- * The World Juniors log-odds for one outcome. ``wjc`` maps a tournament to its NHLe pts/82; for the
+ * The World Juniors log-odds for one outcome. ``wjc`` maps a tournament to its NHLe pts/84; for the
  * WJC-20 both terms also move by ``ageTerms`` per year of ``age`` (at the tournament) from ``center``.
  */
 export function wjcLogOdds(terms, ageTerms, wjc, age, center) {
@@ -42,10 +42,10 @@ export function wjcLogOdds(terms, ageTerms, wjc, age, center) {
 export const shape = (x, kind) => kind === "log" ? Math.log1p(Math.max(x, 0)) : kind === "sqrt" ? Math.sqrt(Math.max(x, 0)) : x;
 const unshape = (v, kind) => kind === "log" ? Math.expm1(v) : kind === "sqrt" ? Math.max(v, 0) ** 2 : v;
 
-export function probabilities(spec, group, rel, pts82, wjc = {}, age = null) {
+export function probabilities(spec, group, rel, pts84, wjc = {}, age = null) {
   const m = spec.models[group][String(rel)];
   const a = age ?? m.wjc_age_typical ?? spec.wjc_age_center;
-  const lo = k => m[k][0] + m[k][1] * shape(pts82, m.shape?.[k]) + wjcLogOdds(m.wjc[k], m.wjc_age[k], wjc, a, spec.wjc_age_center);
+  const lo = k => m[k][0] + m[k][1] * shape(pts84, m.shape?.[k]) + wjcLogOdds(m.wjc[k], m.wjc_age[k], wjc, a, spec.wjc_age_center);
   const nhler = sigmoid(lo("nhler"));
   return { nhler, star: Math.min(sigmoid(lo("star")), nhler) };
 }
@@ -104,28 +104,32 @@ export function buildCard(spec, player, current) {
     const poWeight = typeof spec.po_weight === "object" ? spec.po_weight[group] : spec.po_weight ?? 1;
     const w = r => r.type === "po" ? poWeight : 1;
     out.nhlePts = used.reduce((t, r) => t + r.pts * r.factor * w(r), 0);
-    out.pts82 = out.nhlePts / used.reduce((t, r) => t + r.gp * w(r), 0) * 82;
-    // Each World Juniors this model uses: NHLe pts/82 at the tournament, its own term in the model.
+    out.pts84 = out.nhlePts / used.reduce((t, r) => t + r.gp * w(r), 0) * 84;
+    // Each World Juniors this model uses: NHLe pts/84 at the tournament, its own term in the model.
     out.wjc = {};
     for (const r of rows.filter(r => r.used && tournaments.has(r.key))) {
       const w = out.wjc[r.key] ??= { pts: 0, gp: 0 };
       w.pts += r.pts; w.gp += r.gp;
     }
-    for (const [k, w] of Object.entries(out.wjc)) out.wjc[k] = w.pts * spec.factors[k] / w.gp * 82;
+    for (const [k, w] of Object.entries(out.wjc)) out.wjc[k] = w.pts * spec.factors[k] / w.gp * 84;
     if (regGp < spec.min_gp) out.unrated = `under ${spec.min_gp} games in rated leagues`;
     else if (ratedGp < spec.min_coverage * leagueGp) out.unrated = "most games in leagues without a factor";
     if (out.unrated) return out;
     out.wjcAge = ageOnJan1(player.birthDate, year + 1);
-    Object.assign(out, probabilities(spec, group, rel, out.pts82, out.wjc, out.wjcAge));
-    // The WJC as NHLe: the league pts/82 that would give the same NHLer odds with no WJC, so the
+    Object.assign(out, probabilities(spec, group, rel, out.pts84, out.wjc, out.wjcAge));
+    // The WJC as NHLe: the league pts/84 that would give the same NHLer odds with no WJC, so the
     // card's line can show a big tournament in the same units as the season.
     if (Object.keys(out.wjc).length) {
       const a = out.wjcAge ?? model.wjc_age_typical ?? spec.wjc_age_center;
       const k = model.shape?.nhler, lo = wjcLogOdds(model.wjc.nhler, model.wjc_age.nhler, out.wjc, a, spec.wjc_age_center);
-      out.adjPts82 = unshape(shape(out.pts82, k) + lo / model.nhler[1], k);
-      out.wjcPts82 = out.adjPts82 - out.pts82;
+      out.adjPts84 = unshape(shape(out.pts84, k) + lo / model.nhler[1], k);
+      out.wjcPts84 = out.adjPts84 - out.pts84;
     }
     if (model.known && nhlGpThrough(year) >= 200) { out.nhler = 1; out.known = true; }
+    // A confirmed star (a star season by on-ice xG, training/stars.json) is 100% from that season on,
+    // whatever the draft-relative season; a star is an NHLer too.
+    const starFrom = player.src === "nhl" || !player.src ? spec.stars?.[player.id] : undefined;
+    if (starFrom != null && year >= starFrom) { out.star = 1; out.nhler = 1; out.starKnown = true; }
     return out;
   });
   const latest = [...seasons].reverse().find(s => s.nhler != null);

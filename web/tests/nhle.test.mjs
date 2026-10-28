@@ -179,7 +179,8 @@ test("the API rejects bad parameters without calling upstream", async () => {
   assert.equal((await call("photo", "name=Some%20One&born=June&seasons=ohl:2025"))[0], 400);
   assert.equal((await call("photo", "name=Some%20One&nhl=https://evil.example/x.png"))[0], 400);   // only NHL headshot URLs
   for (const u of ["https://evil.example/ohl/240x240/1.jpg", "https://assets.leaguestat.com/ohl/240x240/1.jpg/../../x",
-                   "http://assets.leaguestat.com/ohl/240x240/1.jpg", ""])   // the relay only fetches leaguestat photos
+                   "http://assets.leaguestat.com/ohl/240x240/1.jpg", "https://assets.nhle.com/logos/x.svg",
+                   "https://liiga-backend-prod.s3.eu-north-1.amazonaws.com/x.png", ""])   // the relay only fetches card photos
     assert.equal((await call("img", `u=${encodeURIComponent(u)}`))[0], 400, u);
   assert.deepEqual(await call("photo", "name=Some%20One&seasons=echl:2025,ohl:20x5"), [200, { url: null }]);   // nothing to look up
 });

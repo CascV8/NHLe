@@ -92,6 +92,13 @@ tr.round td { z-index: 1; }
 .pname { font: 700 2rem/1 var(--display); text-transform: uppercase; letter-spacing: .01em; margin: 0; text-wrap: balance; }
 .pline { font: 600 .95rem var(--body); color: var(--muted); margin-top: 4px; }
 .gen { text-align: right; }
+.card-tools { display: flex; justify-content: flex-end; margin-bottom: 6px; }
+.card-tools button { font: 600 .78rem var(--body); letter-spacing: .03em; color: var(--ink); background: var(--surface);
+  border: 1px solid var(--line); border-radius: 6px; padding: 5px 10px; cursor: pointer; }
+.card-tools button:hover { background: var(--track); }
+.card-tools button:disabled { opacity: .6; cursor: progress; }
+/* While a card is drawn into a PNG: its season table at full size, no scrollbars. */
+.card.capturing .table { overflow: visible; max-height: none; max-width: none; width: auto; }
 .gen b { display: block; font: 700 2.3rem/1 var(--display); font-variant-numeric: tabular-nums; }
 .gen span { font: 600 .74rem var(--display); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: .82rem; color: var(--muted); padding: 10px 16px 0; }
@@ -343,7 +350,8 @@ function renderCard(p, c) {
         <td rowspan="${s.rows.length}">${s.nhler != null ? `${pct(s.star)} / ${pct(s.nhler)}${s.known ? "†" : ""}` : s.unrated ? `<span class="dim">not rated: ${esc(s.unrated)}</span>` : "–"}</td>` : ""}
     </tr>`) : []).join("");
 
-  return `<article class="card">
+  return `<div class="card-tools"><button type="button" class="dl-card" data-name="${esc(p.name)}">Download PNG</button></div>
+  <article class="card">
     <div class="card-head">
       <div class="shot none" id="shot">${esc(initials)}</div>
       <div><h2 class="pname">${esc(p.name)}</h2>
@@ -364,6 +372,43 @@ function renderCard(p, c) {
     </table></div></div>
   </article>
   <p class="dim" style="font-size:.84rem;margin:0">${played.some(s => s.inProgress) ? "* Season in progress: a few games swing pts/82 a lot. " : ""}${played.some(s => s.known) ? "† Already 200 NHL games, so NHLer is 100%. " : ""}Source: ${p.src === "ep" ? "Elite Prospects" : "NHL"}.</p>`;
+}
+
+// Download the card as a PNG (html-to-image, loaded on first use). Photos from other sites are swapped for copies
+// relayed through api/img for the capture, since a canvas can't read images served without CORS headers.
+let htmlToImage = null;
+async function downloadCard(button) {
+  const card = button.closest(".card-tools")?.nextElementSibling;
+  if (!card) return;
+  button.disabled = true;
+  const label = button.textContent;
+  button.textContent = "Rendering…";
+  const swapped = [];
+  try {
+    htmlToImage ??= await import("https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/+esm");
+    for (const img of card.querySelectorAll("img")) {
+      const src = img.currentSrc || img.src;
+      if (!src || src.startsWith("data:") || src.startsWith("blob:") || new URL(src).origin === location.origin) continue;
+      const blob = await (await fetch(`api/img?u=${encodeURIComponent(src)}`)).blob();
+      swapped.push([img, src]);
+      img.src = URL.createObjectURL(blob);
+      await img.decode().catch(() => {});
+    }
+    const bg = getComputedStyle(document.body).backgroundColor;
+    card.classList.add("capturing");
+    const url = await htmlToImage.toPng(card, { pixelRatio: 2, backgroundColor: bg, cacheBust: false,
+      width: Math.max(card.offsetWidth, card.scrollWidth) });
+    const a = Object.assign(document.createElement("a"), { href: url,
+      download: `${button.dataset.name.replace(/[^\w-]+/g, "-").replace(/^-|-$/g, "")}-nhle.png` });
+    a.click();
+  } catch (err) {
+    alert(`Couldn't make the image (${err.message || err}).`);
+  } finally {
+    card.classList.remove("capturing");
+    for (const [img, src] of swapped) { URL.revokeObjectURL(img.src); img.src = src; }
+    button.disabled = false;
+    button.textContent = label;
+  }
 }
 
 // The card's photo, from api/photo (cached for the month): the NHL headshot if the NHL has really photographed the
@@ -541,6 +586,7 @@ document.addEventListener("click", e => {
   const b = e.target.closest("button");
   if (b?.dataset.tab) { tab = b.dataset.tab; browse(); }
   if (b?.classList.contains("pick")) choose({ src: b.dataset.src, id: b.dataset.id });
+  if (b?.classList.contains("dl-card")) downloadCard(b);
 });
 for (const id of ["draft-year", "league", "league-season"]) $(id).addEventListener("change", browse);
 $("draft-sort").addEventListener("change", () => {

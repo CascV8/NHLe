@@ -5,13 +5,15 @@ Predicts NHL outcomes from 2 seasons after the draft year.
 
 Outputs two probabilities on a single bar (Iacobelli-style):
   - P(NHL player) : reaches 200 NHL games
-  - P(Star)       : peak GAR (mean of best 3 seasons) in the top 24% of NHL forwards
+  - P(Star)       : a star season by on-ice xG: net xG above replacement at his
+                    usual 5-on-5 minutes over 84 games, in that season's Pareto
+                    group of NHL forwards
 
 If the player has ALREADY reached 200 GP or the star threshold, that
 outcome is reported as 100%.
 
 The World Juniors (WJC-20) are their own fitted term, not pooled into
-pts/82: making the team and scoring there move the odds on top of the
+pts/84: making the team and scoring there move the odds on top of the
 league season (NHLER_WJC / STAR_WJC), so a big tournament counts for more
 than its 7 games would. The WJC-20 terms also depend on age at the
 tournament (NHLER_WJC_AGE / STAR_WJC_AGE).
@@ -23,7 +25,7 @@ and training/REPORT.md has the sample size, star threshold and accuracy.
 
 Usage:
     python fwd-d2.py                  # interactive
-    python fwd-d2.py --pts82 <value>  # pre-calculated pts/82 (no World Juniors)
+    python fwd-d2.py --pts84 <value>  # pre-calculated pts/84 (no World Juniors)
 
 League names have no spaces (use dashes). Type 'leagues' at any prompt to list all.
 """
@@ -32,22 +34,22 @@ import math
 import sys
 
 # ── Model coefficients ── fit by training/fit.py, see training/REPORT.md ─────
-# log-odds = INTERCEPT + COEF * shape(pts/82), plus for each World Juniors played:
-#            PLAYED + PER_PTS82 * (that tournament's NHLe pts/82)
-# For the WJC-20, PLAYED and PER_PTS82 each also move by *_WJC_AGE per year of
+# log-odds = INTERCEPT + COEF * shape(pts/84), plus for each World Juniors played:
+#            PLAYED + PER_PTS84 * (that tournament's NHLe pts/84)
+# For the WJC-20, PLAYED and PER_PTS84 each also move by *_WJC_AGE per year of
 # age at the tournament (Jan 1) away from WJC_AGE_CENTER: making an under-20
 # team at 17 says more than making it at 19.
-NHLER_INTERCEPT = -2.955781
-NHLER_COEF      =  0.139586
-NHLER_SHAPE     = 'linear'   # COEF multiplies shape(pts/82): "linear", "log" (log(1+x)) or "sqrt"
-NHLER_WJC       = {"wjc-20": (0.657555, 0.005419)}
-NHLER_WJC_AGE   = {"wjc-20": (-0.182384, 0.002028)}
+NHLER_INTERCEPT = -2.955762
+NHLER_COEF      =  0.136261
+NHLER_SHAPE     = 'linear'   # COEF multiplies shape(pts/84): "linear", "log" (log(1+x)) or "sqrt"
+NHLER_WJC       = {"wjc-20": (0.657466, 0.005296)}
+NHLER_WJC_AGE   = {"wjc-20": (-0.182423, 0.001985)}
 
-STAR_INTERCEPT  = -8.769811
-STAR_COEF       =  1.404036
+STAR_INTERCEPT  = -7.246839
+STAR_COEF       =  1.230683
 STAR_SHAPE      = 'sqrt'
-STAR_WJC        = {"wjc-20": (-0.135420, 0.044740)}
-STAR_WJC_AGE    = {"wjc-20": (-0.498876, 0.010585)}
+STAR_WJC        = {"wjc-20": (0.167661, 0.030714)}
+STAR_WJC_AGE    = {"wjc-20": (-0.323441, 0.012363)}
 
 WJC_AGE_CENTER  = 19.0
 WJC_AGE_TYPICAL = 19.7   # median age at the WJC-20 for this season, the default
@@ -100,7 +102,7 @@ LEAGUE_FACTORS = {
 }
 TOURNAMENTS = ('wjc-20',)
 KNOWN_OUTCOMES = True
-# A playoff game counts as this many regular-season games in pts/82: playoff
+# A playoff game counts as this many regular-season games in pts/84: playoff
 # points against playoff teams are worth a little more (fit by training/fit.py).
 PO_WEIGHT = 1.5
 
@@ -127,7 +129,7 @@ def parse_num(raw):
 
 
 def wjc_log_odds(terms, age_terms, wjc, age=None):
-    """The World Juniors term: ``wjc`` maps a tournament to its NHLe pts/82;
+    """The World Juniors term: ``wjc`` maps a tournament to its NHLe pts/84;
     ``age`` is the player's age at the WJC-20 (default: this season's typical)."""
     a = (WJC_AGE_TYPICAL if age is None else age) - WJC_AGE_CENTER
     total = 0.0
@@ -140,29 +142,29 @@ def wjc_log_odds(terms, age_terms, wjc, age=None):
     return total
 
 
-def shape(pts82, kind):
-    x = max(pts82, 0.0)
+def shape(pts84, kind):
+    x = max(pts84, 0.0)
     return {"linear": x, "log": math.log1p(x), "sqrt": math.sqrt(x)}[kind]
 
 
-def p_nhler(pts82, wjc=None, age=None):
-    lo = NHLER_INTERCEPT + NHLER_COEF * shape(pts82, NHLER_SHAPE) + wjc_log_odds(NHLER_WJC, NHLER_WJC_AGE, wjc, age)
+def p_nhler(pts84, wjc=None, age=None):
+    lo = NHLER_INTERCEPT + NHLER_COEF * shape(pts84, NHLER_SHAPE) + wjc_log_odds(NHLER_WJC, NHLER_WJC_AGE, wjc, age)
     return 1.0 / (1.0 + math.exp(-lo))
 
 
-def p_star(pts82, wjc=None, age=None):
-    lo = STAR_INTERCEPT + STAR_COEF * shape(pts82, STAR_SHAPE) + wjc_log_odds(STAR_WJC, STAR_WJC_AGE, wjc, age)
-    return min(1.0 / (1.0 + math.exp(-lo)), p_nhler(pts82, wjc, age))
+def p_star(pts84, wjc=None, age=None):
+    lo = STAR_INTERCEPT + STAR_COEF * shape(pts84, STAR_SHAPE) + wjc_log_odds(STAR_WJC, STAR_WJC_AGE, wjc, age)
+    return min(1.0 / (1.0 + math.exp(-lo)), p_nhler(pts84, wjc, age))
 
 
 def weight(stint):
     return PO_WEIGHT if stint["kind"] == "po" else 1.0
 
 
-def compute_pts82(stints):
+def compute_pts84(stints):
     total_nhle_pts = sum(s["pts"] * s["factor"] * weight(s) for s in stints)
     total_gp       = sum(s["gp"] * weight(s) for s in stints)
-    return (total_nhle_pts / total_gp) * 82 if total_gp > 0 else 0.0
+    return (total_nhle_pts / total_gp) * 84 if total_gp > 0 else 0.0
 
 
 def render_bar(p_nhl, p_str, width=40):
@@ -172,10 +174,10 @@ def render_bar(p_nhl, p_str, width=40):
     return "[" + "★" * n_star + "█" * (n_nhler - n_star) + "░" * n_empty + "]"
 
 
-def show_result(pts82, stints=None, wjc_stints=(), known_nhler=False, known_star=False, age=None):
-    wjc = {s["league_key"]: s["pts"] * s["factor"] / s["gp"] * 82 for s in wjc_stints}
-    pn = 1.0 if (known_nhler or known_star) else p_nhler(pts82, wjc, age)
-    ps = 1.0 if known_star else p_star(pts82, wjc, age)
+def show_result(pts84, stints=None, wjc_stints=(), known_nhler=False, known_star=False, age=None):
+    wjc = {s["league_key"]: s["pts"] * s["factor"] / s["gp"] * 84 for s in wjc_stints}
+    pn = 1.0 if (known_nhler or known_star) else p_nhler(pts84, wjc, age)
+    ps = 1.0 if known_star else p_star(pts84, wjc, age)
 
     print()
     print("  " + "═" * 52)
@@ -194,23 +196,23 @@ def show_result(pts82, stints=None, wjc_stints=(), known_nhler=False, known_star
         total_gp   = sum(s["gp"] * weight(s) for s in stints)
         print(f"  {'─' * 52}")
         print(f"  Total NHLe pts    : {total_nhle:.3f} over {total_gp:.1f} GP")
-    print(f"  NHL pts / 82      : {pts82:.1f}")
+    print(f"  NHL pts / 84      : {pts84:.1f}")
 
     for s in wjc_stints:
         t = s["league_key"]
         at = f" at {WJC_AGE_TYPICAL if age is None else age:.1f}" if t in NHLER_WJC_AGE else ""
-        print(f"  {t.upper():<7} {s['pts']:>4.0f}pts/{s['gp']:>2.0f}gp{at} → {wjc[t]:.1f} NHLe pts/82 → "
+        print(f"  {t.upper():<7} {s['pts']:>4.0f}pts/{s['gp']:>2.0f}gp{at} → {wjc[t]:.1f} NHLe pts/84 → "
               f"{wjc_log_odds(NHLER_WJC, NHLER_WJC_AGE, {t: wjc[t]}, age):+.2f} NHLer / "
               f"{wjc_log_odds(STAR_WJC, STAR_WJC_AGE, {t: wjc[t]}, age):+.2f} star log-odds")
 
     print(f"  {'─' * 52}")
     print()
     print(f"  {render_bar(pn, ps)}")
-    print(f"  ★★ Star (top 24% GAR) : {ps:.1%}")
+    print(f"  ★★ Star (xG star season): {ps:.1%}")
     print(f"  ██ NHL player (200 GP+): {pn:.1%}  (includes star %)")
     print(f"  ░░ Bust (<200 GP)      : {1 - pn:.1%}")
     print()
-    print("  Star ≈ Wayne Simmonds, Drake Batherson, Patric Hornqvist, Pierre-Luc Dubois, Bryan Rust")
+    print("  Star ≈ Quinton Byfield, Jordan Eberle, Cutter Gauthier, Brayden Point, Filip Forsberg")
     print("  " + "═" * 52)
     print()
 
@@ -295,7 +297,7 @@ def ask_known_outcomes():
     print("\n  KNOWN OUTCOMES  (if already achieved, outputs 100%)")
     print(f"  {'─' * 40}")
     known_nhler = ask("Has player already reached 200 NHL GP?", default="n").lower() in ("y", "yes")
-    known_star = ask("Has player already hit star-level GAR (top 24%)?", default="n").lower() in ("y", "yes")
+    known_star = ask("Has player already had a star season (training/stars.json)?", default="n").lower() in ("y", "yes")
     return known_nhler, known_star
 
 
@@ -305,12 +307,12 @@ def main():
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     args = sys.argv[1:]
 
-    if len(args) == 2 and args[0] == "--pts82":
+    if len(args) == 2 and args[0] == "--pts84":
         try:
-            pts82 = parse_num(args[1])
+            pts84 = parse_num(args[1])
         except ValueError as e:
-            sys.exit(f"  ! --pts82: {e}")
-        show_result(pts82)
+            sys.exit(f"  ! --pts84: {e}")
+        show_result(pts84)
         return
 
     print("\n  NHLe Forward D+2 Model  (age ~20)")
@@ -326,7 +328,7 @@ def main():
     wjc, age = collect_wjc()
 
     stints = reg + po
-    show_result(compute_pts82(stints), stints, wjc, known_nhler, known_star, age)
+    show_result(compute_pts84(stints), stints, wjc, known_nhler, known_star, age)
 
 
 if __name__ == "__main__":

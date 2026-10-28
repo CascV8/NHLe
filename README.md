@@ -4,15 +4,19 @@ NHL equivalency (NHLe) prospect models. Each model turns a player's season into 
 points per 84 games, then gives two logistic-regression probabilities:
 
 - **NHL player**: reaches 200 NHL games
-- **Star**: peak GAR (average of best 3 seasons) in the top 24% of NHL skaters at the position
-  (the Pareto cut): 12.7+ for forwards, 11.0+ for defensemen ([Neil Paine's GAR](#credits))
+- **Star**: a star by on-ice and individual expected goals, scored with our
+  [xG model](https://github.com/CascV8/xG-model) ([`training/xg_star.py`](training/xg_star.py)): a season's
+  value is his 5-on-5 net xG relative to his teammates plus his own xG above average, per game × 84;
+  each season's star line is the Pareto split ("What's a point worth?"), about the top 22% of regulars
+  at the position. He's a star once his best 3 seasons average above the line, or after one season in
+  the top 5% on what repeats year to year ([`training/stars.json`](training/stars.json) lists them).
 
 There is one model per position and season relative to the draft year, D-1 (age ~17) through
 D+5 (age ~23), each fit on the 2006–2018 draft classes (see [Training](#training)).
 
 ```
   [★★★★★★★★★★★★★★★███████████░░░░░░░░░░░░░░]
-  ★★ Star (top 24% GAR) : 38.3%
+  ★★ Star (xG star season): 74.1%
   ██ NHL player (200 GP+): 66.2%  (includes star %)
   ░░ Bust (<200 GP)      : 33.8%
 ```
@@ -63,7 +67,8 @@ log-odds, and scoring there adds `PER_PTS84` per NHLe pts/84 at the tournament. 
 also depend on the player's age at the tournament: one line in age per position, fit across D-1
 to D+2, so making an under-20 team at 17 counts for more than at 19
 ([`training/REPORT.md`](training/REPORT.md) lists them all). D+2 to D+5 also ask whether the player has
-already reached 200 GP or star GAR, and if so report that outcome as 100%.
+already reached 200 GP or had a star season, and if so report that outcome as 100%. On the website a
+confirmed star (training/stars.json) shows 100% from the season he was confirmed, at any age.
 
 The scripts are generated from `training/model_template.py.in` by `training/fit.py --write`; edit
 the template, not the scripts.
@@ -127,9 +132,8 @@ python training/fit.py --write # refits all 14 models and regenerates the script
   used only if at least half its games are in leagues with a factor; high school, U18 AAA and
   similar seasons are left out, just as they can't be entered in the scripts. The NTDP's games
   outside the USHL are treated like exhibitions, so its USHL games rate the season.
-- **Outcomes:** 200 NHL games, and peak GAR from Neil Paine's data through 2024-25. Later seasons
-  use an estimate of his GAR from MoneyPuck stats (R² 0.94–0.95 on held-out seasons), rescaled
-  to his league-wide level.
+- **Outcomes:** 200 NHL games, and a star by on-ice and individual xG from 2010-11 on (see Star above;
+  `uv run --project ../xg-model python training/xg_star.py collect 2010 2025` then `... seasons`).
 - **Fit:** one logistic regression per model and outcome on NHLe pts/84 (as a straight line,
   log(1 + pts/84) or √pts/84, whichever cross-validates best for that model and outcome; forwards
   and defensemen are fit separately throughout, playoff weight included), plus the World Juniors

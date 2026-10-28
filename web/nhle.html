@@ -75,6 +75,9 @@ tr.round:hover { background: none; }
 /* Star and NHLer cells: the card's yellow and green, deeper the likelier (shade set inline). */
 td.pct { font-weight: 700; min-width: 3.2em; }
 td.pct.dark { color: var(--bg); }
+.team-logo { width: 26px; height: 26px; vertical-align: middle; }
+.flag { width: 21px; height: 14px; object-fit: cover; border-radius: 2px; vertical-align: -2px;
+  box-shadow: 0 0 0 1px rgb(255 255 255 / .14); }
 #browse-head th { z-index: 2; }   /* above the sticky round dividers it overlaps by a pixel */
 tr.round td { z-index: 1; }
 #browse-head th[data-sort] { cursor: pointer; user-select: none; }
@@ -303,7 +306,7 @@ function leagueTag(s, x) {
 function renderCard(p, c) {
   if (!c.group) return `<p class="msg">${esc(p.name)} is a goalie; the NHLe model is for skaters.</p>`;
   const d = p.draft;
-  const draftLine = d ? `#${d.overall} overall · ${d.year} · ${esc(d.team)}`
+  const draftLine = d ? `#${d.overall} overall · ${d.year} · ${teamLogo(d.team)}`
     : c.draftYear > CURRENT ? `Draft eligible ${c.draftYear}` : `Undrafted (first eligible ${c.draftYear})`;
   const pos = c.group === "D" ? "Defense" : "Forward";
   const initials = p.name.split(/\s+/).map(w => w[0]).join("").slice(0, 2);
@@ -355,7 +358,7 @@ function renderCard(p, c) {
     <div class="card-head">
       <div class="shot none" id="shot">${esc(initials)}</div>
       <div><h2 class="pname">${esc(p.name)}</h2>
-        <div class="pline">${draftLine} · ${pos}${p.nation ? ` · ${esc(p.nation)}` : ""}${p.birthDate ? ` · born ${esc(p.birthDate)}` : ""}</div>
+        <div class="pline">${draftLine} · ${pos}${p.nation ? ` · ${flag(p.nation)}` : ""}${p.birthDate ? ` · born ${esc(p.birthDate)}` : ""}</div>
         <div class="pline" id="ms-link"></div></div>
       <div class="gen">${L ? `<b>${seasonName(L.year)}</b><span>${L.label} · ${pct(L.star)} star · ${pct(L.nhler)} NHLer</span>`
         : `<span>No seasons in a league with an NHLe factor yet</span>`}</div>
@@ -493,6 +496,24 @@ let tab = "draft";
 const row = cells => `<tr>${cells.map(([v, l]) => `<td class="${l ? "l" : ""}">${v}</td>`).join("")}</tr>`;
 const pickBtn = p => `<button type="button" class="pick" data-src="${p.src}" data-id="${esc(p.id)}">${esc(p.name)}</button>`;
 
+// Flags for the NHL's 3-letter country codes (flagcdn.com, by 2-letter code). Unknown codes stay as text.
+const ISO2 = {
+  CAN: "ca", USA: "us", SWE: "se", RUS: "ru", FIN: "fi", CZE: "cz", SVK: "sk", DEU: "de", CHE: "ch", BLR: "by",
+  LVA: "lv", DNK: "dk", NOR: "no", AUT: "at", GBR: "gb", SVN: "si", KAZ: "kz", FRA: "fr", CHN: "cn", ITA: "it",
+  UKR: "ua", BEL: "be", AUS: "au", JPN: "jp", EST: "ee", NGA: "ng", LTU: "lt", NLD: "nl", THA: "th", JAM: "jm",
+  UZB: "uz", POL: "pl", ZAF: "za", HRV: "hr", HUN: "hu", MDA: "md", KOR: "kr", BRA: "br", MEX: "mx", ISR: "il",
+  ROU: "ro", SRB: "rs", BGR: "bg", GRC: "gr", IRL: "ie", ESP: "es", PRT: "pt", ISL: "is", NZL: "nz", ARG: "ar",
+  TWN: "tw", HKG: "hk", GEO: "ge", ARM: "am", TUR: "tr", KGZ: "kg", MNG: "mn", PHL: "ph", IND: "in", CZS: "cz",
+};
+// NHL team logos (the NHL's own, dark-background versions), by tri-code; unknown codes stay as text.
+const teamLogo = code => /^[A-Z]{3}$/.test(code || "")
+  ? `<img class="team-logo" src="https://assets.nhle.com/logos/nhl/svg/${code}_dark.svg" alt="${esc(code)}" title="${esc(code)}" loading="lazy">`
+  : esc(code ?? "");
+const flag = code => {
+  const iso = ISO2[String(code || "").toUpperCase()];
+  return iso ? `<img class="flag" src="https://flagcdn.com/${iso}.svg" alt="${esc(code)}" title="${esc(code)}" loading="lazy">` : esc(code ?? "");
+};
+
 // Draft-class outcomes: each pick's card, built the same way as the one you open. Kept per player:
 // the headline (latest rated) season and every draft-relative season, so the Season menu can switch
 // between them without rebuilding. Loaded for every class shown, six players at a time.
@@ -573,8 +594,8 @@ function renderDraft() {
     const outcome = !o ? '<td class="pct dim">…</td><td class="pct dim">…</td><td class="l"></td>'
       : o.nhler == null ? '<td class="pct">–</td><td class="pct">–</td><td class="l dim" title="No rated season">–</td>'
       : pctCell(o.star, "--star") + pctCell(o.nhler, "--nhler") + `<td class="l dim">${esc(o.label)}</td>`;
-    return divider + row([[p.overall], [pickBtn(p), 1], [esc(p.pos), 1], [esc(p.team), 1],
-      [`${esc(p.club)} <span class="dim">${esc(p.league)}</span>`, 1], [esc(p.nation), 1]]).replace("</tr>", outcome + "</tr>");
+    return divider + row([[p.overall], [pickBtn(p), 1], [esc(p.pos), 1], [teamLogo(p.team), 1],
+      [`${esc(p.club)} <span class="dim">${esc(p.league)}</span>`, 1], [flag(p.nation), 1]]).replace("</tr>", outcome + "</tr>");
   }).join("") || `<tr><td class="l msg">No picks for that year.</td></tr>`;
 }
 

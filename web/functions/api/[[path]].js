@@ -133,6 +133,9 @@ const ID = /^\d{1,10}$/, YEAR = /^(19|20)\d\d$/, SLUG = /^[a-z0-9-]{2,40}$/;
 const NHL_HEADSHOT = /^https:\/\/assets\.nhle\.com\/mugs\/[\w/.-]{1,120}\.png$/;
 const LEAGUESTAT_PHOTO = /^https:\/\/assets\.leaguestat\.com\/[a-z]{2,10}\/\d{2,4}x\d{2,4}\/\d{1,10}\.jpg$/;
 const LIIGA_PHOTO = /^https:\/\/liiga-backend-prod\.s3\.eu-north-1\.amazonaws\.com\/\d{4}\/[\w%.:-]{1,120}\/\d{1,12}\.png$/;
+// The card's other images: NHL team logos and country flags (relayed for the downloadable PNG too)
+const NHL_LOGO = /^https:\/\/assets\.nhle\.com\/logos\/nhl\/svg\/[A-Z]{3}_(dark|light)\.svg$/;
+const FLAG = /^https:\/\/flagcdn\.com\/[a-z]{2}\.svg$/;
 
 const routes = {
   sources: async (_, env) => ({ ep: !!env.EP_API_KEY }),
@@ -162,7 +165,7 @@ const routes = {
   // photo's background, or to draw the card into a downloadable PNG). Only the card's photo sources.
   async img(q) {
     const u = q.get("u") || "";
-    if (![LEAGUESTAT_PHOTO, NHL_HEADSHOT, LIIGA_PHOTO].some(re => re.test(u))) throw new HttpError(400, "not a card photo");
+    if (![LEAGUESTAT_PHOTO, NHL_HEADSHOT, LIIGA_PHOTO, NHL_LOGO, FLAG].some(re => re.test(u))) throw new HttpError(400, "not a card image");
     const r = await fetch(u, { headers: { "user-agent": "nhl-microstats NHLe cards" } });
     if (!r.ok || !/^image\//.test(r.headers.get("content-type") || "")) throw new HttpError(502, `upstream ${r.status}`);
     return new Response(r.body, { headers: { "content-type": r.headers.get("content-type"),

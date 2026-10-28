@@ -315,7 +315,7 @@ function renderCard(p, c) {
     const star = s.star, nh = s.nhler - s.star, bust = 1 - s.nhler;
     const seg = (cls, v, lab) => `<div class="${cls}" style="height:${(v * 100).toFixed(2)}%" title="${lab}: ${pct(v)}">${v >= .06 ? pct(v) : ""}</div>`;
     return `<div class="stack${s.inProgress ? " live" : ""}">${seg("s", star, "Star")}${seg("n", nh, "NHLer, not a star")}${seg("b", bust, "Bust")}
-      ${s.starKnown ? `<span class="known">Star</span>` : s.known ? `<span class="known">200 GP</span>` : ""}</div>`;
+      ${s.starKnown ? `<span class="known">Star</span>` : ""}</div>`;
   }).join("");
   const labels = c.seasons.map(s => `<div><b>${s.label}</b><span>${seasonName(s.year)}${s.inProgress ? "*" : ""}</span></div>`).join("");
 

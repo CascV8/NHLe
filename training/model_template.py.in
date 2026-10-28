@@ -93,8 +93,13 @@ def wjc_log_odds(terms, age_terms, wjc, age=None):
     return total
 
 
+# pts/84 above this (the top 0.5% of the training sample) counts as this: the model
+# doesn't extrapolate past the seasons it learned from.
+PTS84_CAP = $x_cap
+
+
 def shape(pts84, kind):
-    x = max(pts84, 0.0)
+    x = min(max(pts84, 0.0), PTS84_CAP)
     return {"linear": x, "log": math.log1p(x), "sqrt": math.sqrt(x)}[kind]
 
 

@@ -45,7 +45,8 @@ const unshape = (v, kind) => kind === "log" ? Math.expm1(v) : kind === "sqrt" ? 
 export function probabilities(spec, group, rel, pts84, wjc = {}, age = null) {
   const m = spec.models[group][String(rel)];
   const a = age ?? m.wjc_age_typical ?? spec.wjc_age_center;
-  const lo = k => m[k][0] + m[k][1] * shape(pts84, m.shape?.[k]) + wjcLogOdds(m.wjc[k], m.wjc_age[k], wjc, a, spec.wjc_age_center);
+  const x = m.x_cap != null ? Math.min(pts84, m.x_cap) : pts84;   // no extrapolating past the training data
+  const lo = k => m[k][0] + m[k][1] * shape(x, m.shape?.[k]) + wjcLogOdds(m.wjc[k], m.wjc_age[k], wjc, a, spec.wjc_age_center);
   const nhler = sigmoid(lo("nhler"));
   return { nhler, star: Math.min(sigmoid(lo("star")), nhler) };
 }
@@ -122,8 +123,10 @@ export function buildCard(spec, player, current) {
     if (Object.keys(out.wjc).length) {
       const a = out.wjcAge ?? model.wjc_age_typical ?? spec.wjc_age_center;
       const k = model.shape?.nhler, lo = wjcLogOdds(model.wjc.nhler, model.wjc_age.nhler, out.wjc, a, spec.wjc_age_center);
-      out.adjPts84 = unshape(shape(out.pts84, k) + lo / model.nhler[1], k);
-      out.wjcPts84 = out.adjPts84 - out.pts84;
+      // Measured from the league rate the model uses (held at its cap, past which it doesn't extrapolate)
+      const base = model.x_cap != null ? Math.min(out.pts84, model.x_cap) : out.pts84;
+      out.wjcPts84 = unshape(shape(base, k) + lo / model.nhler[1], k) - base;
+      out.adjPts84 = out.pts84 + out.wjcPts84;
     }
     if (model.known && nhlGpThrough(year) >= 200) { out.nhler = 1; out.known = true; }
     // A confirmed star (a star season by on-ice xG, training/stars.json) is 100% from that season on,

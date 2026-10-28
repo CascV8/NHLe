@@ -66,6 +66,8 @@ def model_spec():
             "star": [m["star"]["intercept"], m["star"]["coef"]],
             # The curve each coefficient multiplies: "linear" pts/84, "log" log(1 + pts/84) or "sqrt"
             "shape": {"nhler": m["nhler"].get("shape", "linear"), "star": m["star"].get("shape", "linear")},
+            # pts/84 above the top 0.5% of the model's sample is held there (no extrapolating)
+            "x_cap": m.get("x_cap"),
             # World Juniors terms: {tournament: [played, per NHLe pts/84 there]}
             "wjc": {"nhler": m["nhler"].get("wjc", {}), "star": m["star"].get("wjc", {})},
             # WJC-20 slopes per year of age at the tournament, from fit["WJC_AGE_CENTER"]

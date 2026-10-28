@@ -86,8 +86,14 @@ test("the World Juniors show on the NHLe line as pts/84 worth the same NHLer odd
   const card = buildCard(SPEC, nhlPlayer(landing), 2026);
   const dy = card.seasons[1], m = SPEC.models.F["0"];
   close(dy.adjPts84, dy.pts84 + dy.wjcPts84);
-  // the adjusted rate alone, with no WJC, gives the season's NHLer odds
-  close(probabilities(SPEC, "F", 0, dy.adjPts84).nhler, dy.nhler, 1e-9);
+  // Without the cap (which holds rates past the top 0.5% of the sample), the adjusted rate alone, with no
+  // WJC, gives the season's NHLer odds
+  const noCap = structuredClone(SPEC);
+  for (const g of Object.values(noCap.models)) for (const mm of Object.values(g)) mm.x_cap = null;
+  const uncapped = buildCard(noCap, nhlPlayer(landing), 2026).seasons[1];
+  close(probabilities(noCap, "F", 0, uncapped.adjPts84).nhler, uncapped.nhler, 1e-9);
+  // and the cap only ever lowers a season's odds
+  assert.ok(dy.nhler <= uncapped.nhler + 1e-12);
   assert.equal(card.seasons[5].adjPts84, undefined);   // no WJC, nothing to add
   assert.ok(m.nhler[1] > 0);
 });

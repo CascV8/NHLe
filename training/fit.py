@@ -67,6 +67,7 @@ WJC_AGE_CENTER = 19.0          # WJC-20 terms are a line in age at the tournamen
 PO_WEIGHT = {"F": 1.5, "D": 1.25}
 PO_SWEEP = [1.0, 1.25, 1.5, 2.0, 2.5, 3.0]
 SHAPES = ("linear", "log", "sqrt")
+X_CAP_PCT = 99.5               # pts84 above this percentile of a model's sample is held at it
 MAX_LOG_SE = 0.25              # leagues whose factor is less certain than ~±28% stay out of the scripts
 
 # Scripts per (position, season relative to draft year) and the tournaments
@@ -265,6 +266,11 @@ def model_sample(d, stints, cover, rel, tourn, factors, po_weight=1.0):
     sample = d.set_index("playerId").join(agg, how="inner").join(reg_gp).join(all_gp).join(rated_gp)
     sample = sample[(sample.reg_gp >= MIN_GP) & (sample.rated_gp >= MIN_COVERAGE * sample.all_gp)].copy()
     sample["x"] = sample.nhle / sample.gp * 84
+    # No extrapolating past the data: a season above the top X_CAP_PCT of this model's sample counts as
+    # if it were at that line (a handful of players can't carry a curve to 96%).
+    sample["x_raw"] = sample.x
+    sample["x_cap"] = float(np.percentile(sample.x, X_CAP_PCT))
+    sample["x"] = sample.x.clip(upper=sample.x_cap.iloc[0])
     # Age on January 1 of the season, i.e. at the World Juniors
     born = pd.to_datetime(sample.birthDate, errors="coerce")
     jan1 = pd.to_datetime((sample.baseYear + rel).astype(int).astype(str) + "-01-01")
@@ -534,6 +540,7 @@ def fit_models(draft, stints, cover, factors, po_weight, quiet=False):
                 mres["old_log_loss"] = log_loss(old_predict(old, prefix, sample, tourn), y)
             res[target] = mres
         res["pts84_median"] = float(np.median(sample.x))
+        res["x_cap"] = round(float(sample.x_cap.iloc[0]), 3)
         res["po_weight"] = po_weight[pos]
         results.append(res)
         if quiet:
@@ -583,6 +590,7 @@ def write_script(res, factors, examples, po_weight):
         nhler_intercept=f"{res['nhler']['intercept']: .6f}", nhler_coef=f"{res['nhler']['coef']: .6f}",
         po_weight=f"{po_weight}",
         nhler_shape=repr(res["nhler"]["shape"]), star_shape=repr(res["star"]["shape"]),
+        x_cap=f"{res['x_cap']:.3f}",
         nhler_wjc=wjc_dict(res["nhler"]["wjc"]), nhler_wjc_age=wjc_dict(res["nhler"]["wjc_age"]),
         star_intercept=f"{res['star']['intercept']: .6f}", star_coef=f"{res['star']['coef']: .6f}",
         star_wjc=wjc_dict(res["star"]["wjc"]), star_wjc_age=wjc_dict(res["star"]["wjc_age"]),

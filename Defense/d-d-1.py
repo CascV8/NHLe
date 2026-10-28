@@ -36,17 +36,17 @@ import sys
 # For the WJC-20, PLAYED and PER_PTS84 each also move by *_WJC_AGE per year of
 # age at the tournament (Jan 1) away from WJC_AGE_CENTER: making an under-20
 # team at 17 says more than making it at 19.
-NHLER_INTERCEPT = -2.085890
-NHLER_COEF      =  0.354867
+NHLER_INTERCEPT = -2.089718
+NHLER_COEF      =  0.355492
 NHLER_SHAPE     = 'linear'   # COEF multiplies shape(pts/84): "linear", "log" (log(1+x)) or "sqrt"
-NHLER_WJC       = {"wjc-18": (0.510945, 0.002678), "wjc-20": (0.746666, 0.031302)}
-NHLER_WJC_AGE   = {"wjc-20": (-0.209003, 0.017748)}
+NHLER_WJC       = {"wjc-18": (0.511344, 0.003386), "wjc-20": (0.744568, 0.031409)}
+NHLER_WJC_AGE   = {"wjc-20": (-0.211467, 0.016661)}
 
-STAR_INTERCEPT  = -4.553052
-STAR_COEF       =  1.518141
+STAR_INTERCEPT  = -4.558840
+STAR_COEF       =  1.520832
 STAR_SHAPE      = 'sqrt'
-STAR_WJC        = {"wjc-18": (0.167883, 0.016997), "wjc-20": (0.372427, 0.050389)}
-STAR_WJC_AGE    = {"wjc-20": (-0.374154, 0.004174)}
+STAR_WJC        = {"wjc-18": (0.172141, 0.018003), "wjc-20": (0.365379, 0.050406)}
+STAR_WJC_AGE    = {"wjc-20": (-0.381586, 0.002973)}
 
 WJC_AGE_CENTER  = 19.0
 WJC_AGE_TYPICAL = 17.0   # median age at the WJC-20 for this season, the default
@@ -101,7 +101,7 @@ TOURNAMENTS = ('wjc-18', 'wjc-20')
 KNOWN_OUTCOMES = False
 # A playoff game counts as this many regular-season games in pts/84: playoff
 # points against playoff teams are worth a little more (fit by training/fit.py).
-PO_WEIGHT = 1.5
+PO_WEIGHT = 1.25
 
 
 def parse_league(raw):
@@ -139,8 +139,13 @@ def wjc_log_odds(terms, age_terms, wjc, age=None):
     return total
 
 
+# pts/84 above this (the top 0.5% of the training sample) counts as this: the model
+# doesn't extrapolate past the seasons it learned from.
+PTS84_CAP = 10.104
+
+
 def shape(pts84, kind):
-    x = max(pts84, 0.0)
+    x = min(max(pts84, 0.0), PTS84_CAP)
     return {"linear": x, "log": math.log1p(x), "sqrt": math.sqrt(x)}[kind]
 
 

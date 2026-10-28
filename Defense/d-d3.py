@@ -35,14 +35,14 @@ import sys
 # For the WJC-20, PLAYED and PER_PTS84 each also move by *_WJC_AGE per year of
 # age at the tournament (Jan 1) away from WJC_AGE_CENTER: making an under-20
 # team at 17 says more than making it at 19.
-NHLER_INTERCEPT = -6.163857
-NHLER_COEF      =  2.149969
+NHLER_INTERCEPT = -6.175972
+NHLER_COEF      =  2.154227
 NHLER_SHAPE     = 'log'   # COEF multiplies shape(pts/84): "linear", "log" (log(1+x)) or "sqrt"
 NHLER_WJC       = {}
 NHLER_WJC_AGE   = {}
 
-STAR_INTERCEPT  = -9.416096
-STAR_COEF       =  2.871227
+STAR_INTERCEPT  = -9.456090
+STAR_COEF       =  2.886130
 STAR_SHAPE      = 'log'
 STAR_WJC        = {}
 STAR_WJC_AGE    = {}
@@ -98,7 +98,7 @@ TOURNAMENTS = ()
 KNOWN_OUTCOMES = True
 # A playoff game counts as this many regular-season games in pts/84: playoff
 # points against playoff teams are worth a little more (fit by training/fit.py).
-PO_WEIGHT = 1.5
+PO_WEIGHT = 1.25
 
 
 def parse_league(raw):
@@ -136,8 +136,13 @@ def wjc_log_odds(terms, age_terms, wjc, age=None):
     return total
 
 
+# pts/84 above this (the top 0.5% of the training sample) counts as this: the model
+# doesn't extrapolate past the seasons it learned from.
+PTS84_CAP = 45.538
+
+
 def shape(pts84, kind):
-    x = max(pts84, 0.0)
+    x = min(max(pts84, 0.0), PTS84_CAP)
     return {"linear": x, "log": math.log1p(x), "sqrt": math.sqrt(x)}[kind]
 
 

@@ -6,24 +6,24 @@ Draft classes 2006–2018: 2753 picks with an NHL id (1833 forwards, 920 defense
 NHL player = 200+ NHL games. Star = NHL player with a star season by on-ice xG ([xg_star.py](xg_star.py), scored with the xG model): on-ice net xG above replacement at his average 5-on-5 minutes over 84 games, inside that season's Pareto group of regulars (40+ games) at his position (on average the top 22% of forwards and 22% of defensemen).
 Star examples near the line — F: Quinton Byfield, Jordan Eberle, Cutter Gauthier, Brayden Point, Filip Forsberg; D: Noah Hanifin, Ryker Evans, Roman Josi, Sean Walker, Gustav Forsling.
 
-`n` is the number of picks with a usable season (10+ GP, at least half of it in leagues with an NHLe factor) out of those who played that season at all. `x` is NHLe pts/84 in league play (regular season + playoffs, each playoff game counting as 1.5 games for forwards and 1.5 for defensemen; see [po_sweep.json](po_sweep.json)). Seasons are counted from each player's first eligible draft. `shape` is the curve in pts84 each fit uses (linear, log(1+x) or sqrt), the one with the best CV log loss; `linear` is the CV log loss a straight line would have. Log loss (lower is better) is on the same sample five ways: the fit; leave-one-draft-class-out cross-validation; CV with each model's World Juniors terms fit on their own, without the shared WJC-20 age line (`per-season`); CV with the World Juniors pooled into pts/84 instead of their own term (`pooled`); and the coefficients and factors the script had before this fit.
+`n` is the number of picks with a usable season (10+ GP, at least half of it in leagues with an NHLe factor) out of those who played that season at all. `x` is NHLe pts/84 in league play (regular season + playoffs, each playoff game counting as 1.5 games for forwards and 1.25 for defensemen; see [po_sweep.json](po_sweep.json)). Seasons are counted from each player's first eligible draft. `shape` is the curve in pts84 each fit uses (linear, log(1+x) or sqrt), the one with the best CV log loss; `linear` is the CV log loss a straight line would have. Log loss (lower is better) is on the same sample five ways: the fit; leave-one-draft-class-out cross-validation; CV with each model's World Juniors terms fit on their own, without the shared WJC-20 age line (`per-season`); CV with the World Juniors pooled into pts/84 instead of their own term (`pooled`); and the coefficients and factors the script had before this fit.
 
 | Model | n / played | NHLer rate | NHLer coefs | AUC | log loss fit / CV / linear / per-season / pooled / old | Star rate | Star coefs | AUC | log loss fit / CV / linear / per-season / pooled / old |
 |---|---|---|---|---|---|---|---|---|---|
-| Fwd D-1 | 1133 / 1773 | 28.6% | -2.006 + 0.2386·x | 0.715 | 0.536 / 0.540 / 0.540 / 0.540 / 0.541 / 0.537 | 11.1% | -5.746 + 2.1530·log(1+x) | 0.794 | 0.284 / 0.288 / 0.294 / 0.288 / 0.291 / 0.295 |
-| Fwd DY | 1508 / 1823 | 27.2% | -2.316 + 0.1702·x | 0.720 | 0.515 / 0.519 / 0.520 / 0.520 / 0.521 / 0.515 | 10.0% | -6.569 + 1.5237·√x | 0.832 | 0.249 / 0.254 / 0.255 / 0.252 / 0.252 / 0.265 |
-| Fwd D+1 | 1737 / 1822 | 25.9% | -2.582 + 0.1347·x | 0.755 | 0.474 / 0.477 / 0.478 / 0.478 / 0.483 / 0.474 | 9.3% | -8.861 + 2.5499·log(1+x) | 0.870 | 0.218 / 0.221 / 0.228 / 0.221 / 0.234 / 0.234 |
-| Fwd D+2 | 1792 / 1821 | 25.8% | -2.956 + 0.1363·x | 0.790 | 0.445 / 0.448 / 0.449 / 0.449 / 0.453 / 0.445 | 9.3% | -7.247 + 1.2307·√x | 0.889 | 0.200 / 0.203 / 0.207 / 0.203 / 0.213 / 0.216 |
-| Fwd D+3 | 1737 / 1801 | 26.5% | -2.982 + 0.1270·x | 0.809 | 0.424 / 0.427 / 0.427 / 0.427 / 0.427 / 0.424 | 9.6% | -7.908 + 1.2794·√x | 0.912 | 0.184 / 0.186 / 0.190 / 0.186 / 0.190 / 0.202 |
-| Fwd D+4 | 1666 / 1782 | 27.9% | -3.158 + 0.1264·x | 0.830 | 0.411 / 0.413 / 0.413 / 0.413 / 0.413 / 0.411 | 10.0% | -9.463 + 1.4969·√x | 0.939 | 0.158 / 0.160 / 0.163 / 0.160 / 0.163 / 0.180 |
-| Fwd D+5 | 1627 / 1764 | 28.4% | -3.034 + 0.1105·x | 0.831 | 0.412 / 0.414 / 0.414 / 0.414 / 0.414 / 0.412 | 10.2% | -10.625 + 1.6215·√x | 0.957 | 0.141 / 0.142 / 0.144 / 0.142 / 0.144 / 0.167 |
-| Def D-1 | 574 / 893 | 25.3% | -2.086 + 0.3549·x | 0.702 | 0.511 / 0.518 / 0.518 / 0.518 / 0.519 / 0.512 | 11.7% | -4.553 + 1.5181·√x | 0.743 | 0.313 / 0.319 / 0.320 / 0.320 / 0.320 / 0.331 |
-| Def DY | 754 / 916 | 24.4% | -2.639 + 0.2841·x | 0.742 | 0.481 / 0.489 / 0.490 / 0.490 / 0.497 / 0.481 | 11.3% | -3.998 + 0.3190·x | 0.784 | 0.286 / 0.294 / 0.294 / 0.294 / 0.303 / 0.307 |
-| Def D+1 | 880 / 915 | 23.6% | -4.474 + 1.2523·√x | 0.775 | 0.444 / 0.448 / 0.449 / 0.448 / 0.459 / 0.443 | 10.8% | -6.109 + 1.4241·√x | 0.819 | 0.258 / 0.264 / 0.265 / 0.264 / 0.270 / 0.277 |
-| Def D+2 | 905 / 911 | 23.5% | -5.033 + 1.2672·√x | 0.821 | 0.412 / 0.415 / 0.416 / 0.415 / 0.429 / 0.412 | 10.6% | -8.385 + 2.6180·log(1+x) | 0.874 | 0.233 / 0.239 / 0.246 / 0.239 / 0.250 / 0.254 |
-| Def D+3 | 882 / 904 | 23.9% | -6.164 + 2.1500·log(1+x) | 0.815 | 0.420 / 0.423 / 0.429 / 0.423 / 0.429 / 0.421 | 10.7% | -9.416 + 2.8712·log(1+x) | 0.882 | 0.226 / 0.230 / 0.235 / 0.230 / 0.235 / 0.246 |
-| Def D+4 | 821 / 890 | 25.6% | -5.634 + 1.3519·√x | 0.847 | 0.393 / 0.397 / 0.399 / 0.397 / 0.399 / 0.393 | 11.4% | -10.891 + 3.2768·log(1+x) | 0.908 | 0.213 / 0.218 / 0.224 / 0.218 / 0.224 / 0.236 |
-| Def D+5 | 814 / 879 | 26.2% | -5.717 + 1.3136·√x | 0.858 | 0.384 / 0.388 / 0.391 / 0.388 / 0.391 / 0.383 | 11.8% | -11.875 + 3.4869·log(1+x) | 0.926 | 0.201 / 0.205 / 0.216 / 0.205 / 0.216 / 0.234 |
+| Fwd D-1 | 1133 / 1773 | 28.6% | -2.044 + 0.2478·x | 0.715 | 0.534 / 0.538 / 0.538 / 0.538 / 0.541 / 0.537 | 11.1% | -5.476 + 1.5690·√x | 0.795 | 0.282 / 0.286 / 0.291 / 0.287 / 0.291 / 0.284 |
+| Fwd DY | 1508 / 1823 | 27.2% | -2.338 + 0.1733·x | 0.720 | 0.514 / 0.518 / 0.519 / 0.519 / 0.521 / 0.514 | 10.0% | -6.681 + 1.5609·√x | 0.832 | 0.248 / 0.253 / 0.253 / 0.252 / 0.252 / 0.249 |
+| Fwd D+1 | 1737 / 1822 | 25.9% | -2.584 + 0.1349·x | 0.755 | 0.474 / 0.477 / 0.478 / 0.478 / 0.483 / 0.474 | 9.3% | -8.961 + 2.5902·log(1+x) | 0.869 | 0.218 / 0.221 / 0.227 / 0.221 / 0.234 / 0.218 |
+| Fwd D+2 | 1792 / 1821 | 25.8% | -2.956 + 0.1363·x | 0.790 | 0.445 / 0.448 / 0.449 / 0.449 / 0.453 / 0.445 | 9.3% | -7.261 + 1.2348·√x | 0.889 | 0.200 / 0.203 / 0.207 / 0.203 / 0.213 / 0.200 |
+| Fwd D+3 | 1737 / 1801 | 26.5% | -2.982 + 0.1270·x | 0.809 | 0.424 / 0.427 / 0.427 / 0.427 / 0.427 / 0.424 | 9.6% | -7.915 + 1.2809·√x | 0.912 | 0.184 / 0.186 / 0.190 / 0.186 / 0.190 / 0.184 |
+| Fwd D+4 | 1666 / 1782 | 27.9% | -3.158 + 0.1264·x | 0.830 | 0.411 / 0.413 / 0.413 / 0.413 / 0.413 / 0.411 | 10.0% | -9.470 + 1.4983·√x | 0.939 | 0.158 / 0.160 / 0.163 / 0.160 / 0.163 / 0.159 |
+| Fwd D+5 | 1627 / 1764 | 28.4% | -3.034 + 0.1105·x | 0.831 | 0.412 / 0.414 / 0.414 / 0.414 / 0.414 / 0.412 | 10.2% | -10.631 + 1.6226·√x | 0.957 | 0.141 / 0.142 / 0.144 / 0.142 / 0.144 / 0.141 |
+| Def D-1 | 574 / 893 | 25.3% | -2.090 + 0.3555·x | 0.702 | 0.511 / 0.519 / 0.519 / 0.519 / 0.520 / 0.511 | 11.7% | -4.559 + 1.5208·√x | 0.742 | 0.314 / 0.320 / 0.321 / 0.321 / 0.320 / 0.314 |
+| Def DY | 754 / 916 | 24.4% | -2.647 + 0.2855·x | 0.742 | 0.481 / 0.490 / 0.490 / 0.490 / 0.497 / 0.481 | 11.3% | -4.022 + 0.3235·x | 0.784 | 0.286 / 0.294 / 0.294 / 0.294 / 0.303 / 0.286 |
+| Def D+1 | 880 / 915 | 23.6% | -4.522 + 1.2708·√x | 0.776 | 0.444 / 0.448 / 0.448 / 0.448 / 0.458 / 0.443 | 10.8% | -6.208 + 1.4611·√x | 0.819 | 0.259 / 0.265 / 0.265 / 0.265 / 0.269 / 0.258 |
+| Def D+2 | 905 / 911 | 23.5% | -5.045 + 1.2712·√x | 0.821 | 0.412 / 0.416 / 0.416 / 0.416 / 0.429 / 0.412 | 10.6% | -8.435 + 2.6413·log(1+x) | 0.874 | 0.234 / 0.240 / 0.246 / 0.240 / 0.250 / 0.233 |
+| Def D+3 | 882 / 904 | 23.9% | -6.176 + 2.1542·log(1+x) | 0.815 | 0.420 / 0.423 / 0.429 / 0.423 / 0.429 / 0.421 | 10.7% | -9.456 + 2.8861·log(1+x) | 0.882 | 0.226 / 0.231 / 0.235 / 0.231 / 0.235 / 0.226 |
+| Def D+4 | 821 / 890 | 25.6% | -5.646 + 1.3545·√x | 0.847 | 0.393 / 0.397 / 0.399 / 0.397 / 0.399 / 0.393 | 11.4% | -10.974 + 3.3052·log(1+x) | 0.908 | 0.213 / 0.217 / 0.224 / 0.217 / 0.224 / 0.212 |
+| Def D+5 | 814 / 879 | 26.2% | -5.732 + 1.3167·√x | 0.858 | 0.384 / 0.387 / 0.390 / 0.387 / 0.390 / 0.383 | 11.8% | -11.898 + 3.4935·log(1+x) | 0.926 | 0.201 / 0.206 / 0.216 / 0.206 / 0.216 / 0.201 |
 
 ## World Juniors terms
 
@@ -35,10 +35,10 @@ One line in age (on January 1) per position, fit jointly across D-1 to D+2: `pla
 
 | Position | Outcome | played (at 19) | per year | per_pts84 (at 19) | per year | age 17 | age 18 | age 19 | age 20 |
 |---|---|---|---|---|---|---|---|---|---|
-| Forwards | NHLer | +0.657 | -0.182 | +0.0053 | +0.0020 | +1.02 / +1.05 / +1.08 | +0.84 / +0.91 / +0.97 | +0.66 / +0.76 / +0.87 | +0.48 / +0.62 / +0.77 |
-| Forwards | Star | +0.168 | -0.323 | +0.0307 | +0.0124 | +0.81 / +0.93 / +1.05 | +0.49 / +0.86 / +1.23 | +0.17 / +0.78 / +1.40 | -0.16 / +0.71 / +1.57 |
-| Defense | NHLer | +0.747 | -0.209 | +0.0313 | +0.0177 | +1.16 / +1.08 / +1.00 | +0.96 / +1.23 / +1.50 | +0.75 / +1.37 / +2.00 | +0.54 / +1.52 / +2.50 |
-| Defense | Star | +0.372 | -0.374 | +0.0504 | +0.0042 | +1.12 / +1.96 / +2.80 | +0.75 / +1.67 / +2.60 | +0.37 / +1.38 / +2.39 | -0.00 / +1.09 / +2.18 |
+| Forwards | NHLer | +0.658 | -0.185 | +0.0052 | +0.0021 | +1.03 / +1.05 / +1.07 | +0.84 / +0.91 / +0.97 | +0.66 / +0.76 / +0.87 | +0.47 / +0.62 / +0.77 |
+| Forwards | Star | +0.161 | -0.321 | +0.0305 | +0.0126 | +0.80 / +0.91 / +1.01 | +0.48 / +0.84 / +1.20 | +0.16 / +0.77 / +1.38 | -0.16 / +0.70 / +1.57 |
+| Defense | NHLer | +0.745 | -0.211 | +0.0314 | +0.0167 | +1.17 / +1.13 / +1.09 | +0.96 / +1.25 / +1.55 | +0.74 / +1.37 / +2.00 | +0.53 / +1.49 / +2.46 |
+| Defense | Star | +0.365 | -0.382 | +0.0504 | +0.0030 | +1.13 / +2.02 / +2.91 | +0.75 / +1.70 / +2.64 | +0.37 / +1.37 / +2.38 | -0.02 / +1.05 / +2.12 |
 
 Players at the WJC-20 in each model's sample, and their median age:
 
@@ -55,9 +55,9 @@ Players at the WJC-20 in each model's sample, and their median age:
 
 | Model | Played | NHLer: played, per pts/84 | at 0 / 20 / 40 | Star: played, per pts/84 | at 0 / 20 / 40 |
 |---|---|---|---|---|---|
-| Fwd D-1 | 124 | +0.416, +0.0149 | +0.42 / +0.71 / +1.01 | -0.181, +0.0305 | -0.18 / +0.43 / +1.04 |
-| Fwd DY | 331 | +0.197, +0.0141 | +0.20 / +0.48 / +0.76 | -0.472, +0.0435 | -0.47 / +0.40 / +1.27 |
-| Def D-1 | 46 | +0.511, +0.0027 | +0.51 / +0.56 / +0.62 | +0.168, +0.0170 | +0.17 / +0.51 / +0.85 |
-| Def DY | 167 | +0.481, +0.0443 | +0.48 / +1.37 / +2.25 | +0.653, +0.0471 | +0.65 / +1.60 / +2.54 |
+| Fwd D-1 | 124 | +0.415, +0.0132 | +0.42 / +0.68 / +0.95 | -0.182, +0.0268 | -0.18 / +0.35 / +0.89 |
+| Fwd DY | 331 | +0.200, +0.0137 | +0.20 / +0.47 / +0.75 | -0.470, +0.0438 | -0.47 / +0.41 / +1.28 |
+| Def D-1 | 46 | +0.511, +0.0034 | +0.51 / +0.58 / +0.65 | +0.172, +0.0180 | +0.17 / +0.53 / +0.89 |
+| Def DY | 167 | +0.483, +0.0440 | +0.48 / +1.36 / +2.24 | +0.655, +0.0465 | +0.65 / +1.58 / +2.51 |
 
 Re-run with `python training/scrape.py`, `python training/network.py`, then `python training/fit.py --write`.

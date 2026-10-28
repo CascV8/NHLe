@@ -1,0 +1,80 @@
+# Monthly: new stars and the next two draft classes. Commits training/stars.json (and the season
+# totals behind it) and web/prospects.json to nhle-models; the site picks them up on its next update.
+#
+#   stars:     this season's new games, scored with the xG model (github.com/CascV8/xG-model), added
+#              to the committed season totals, then the star list rebuilt (training/xg_star.py)
+#   prospects: every skater on the league websites in the next two draft classes, plus NHL Central
+#              Scouting's lists once published (web/prospects.py)
+#
+# The xG model is trained here from the public xG-model repo the first time (about an hour) and
+# cached after that; the season's games are cached too, so each run only fetches what's new.
+
+name: Monthly update
+
+on:
+  schedule:
+    - cron: "0 9 1 * *"      # 09:00 UTC on the 1st
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: monthly-update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: nhle-models
+      - uses: actions/checkout@v4
+        with:
+          repository: CascV8/xG-model
+          path: xg-model
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.13"
+
+      - name: Restore the xG model and cached games
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            xg-model/models
+            training/data/xg_games
+          key: monthly-${{ github.run_id }}
+          restore-keys: monthly-
+
+      - name: Train the xG model (first run, or the cache was cleared)
+        if: hashFiles('xg-model/models/xg.joblib') == ''
+        working-directory: xg-model
+        run: |
+          uv run xg-model collect 2022 2023 2024 2025
+          uv run xg-model train
+
+      - name: Stars (this season's new games, then the star list)
+        run: uv run --project xg-model python training/xg_star.py update
+
+      - name: The next two draft classes
+        run: uv run --no-project --with "puckscrape @ git+https://github.com/CascV8/Puckscrape.git" python web/prospects.py
+
+      - name: Save the xG model and cached games
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            xg-model/models
+            training/data/xg_games
+          key: monthly-${{ github.run_id }}
+
+      - name: Commit what changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git add training/stars.json training/xg_totals.csv training/xg_seasons.csv training/positions.json web/prospects.json
+          if git diff --cached --quiet; then echo "Nothing changed."; exit 0; fi
+          git commit -m "Monthly update: stars and the next two draft classes"
+          git push origin HEAD:nhle-models

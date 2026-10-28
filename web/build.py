@@ -112,6 +112,9 @@ def build(site, functions=None):
     site.mkdir(parents=True, exist_ok=True)
     shutil.copy(WEB / "nhle.html", site / "nhle.html")
     shutil.copy(WEB / "nhle.js", site / "nhle.js")
+    # The next two draft classes (web/prospects.py, refreshed monthly)
+    if (WEB / "prospects.json").exists():
+        shutil.copy(WEB / "prospects.json", site / "nhle-prospects.json")
     spec = model_spec()
     (site / "nhle-model.json").write_text(json.dumps(spec, indent=1), encoding="utf-8")
     (site / "nhle-logos").mkdir(exist_ok=True)

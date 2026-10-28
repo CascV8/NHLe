@@ -184,6 +184,7 @@ tr.round td { z-index: 1; }
         <option value="pick">Pick</option><option value="star">Star %</option><option value="nhler">NHLer %</option>
         <option value="column" hidden>Column</option>
       </select></label>
+      <label for="draft-rank" data-for="draft" id="rank-label" hidden>Ranking <select id="draft-rank"></select></label>
       <label for="draft-season" data-for="draft">Season <select id="draft-season">
         <option value="latest">Latest</option><option value="-1">D-1</option><option value="0">DY</option>
         <option value="1">D+1</option><option value="2">D+2</option><option value="3">D+3</option>
@@ -277,7 +278,8 @@ window.addEventListener("popstate", fromUrl);
 async function show(src, id, scroll = false) {
   $("card-area").innerHTML = `<p class="msg">Building the card…</p>`;
   try {
-    const player = await api("player", { src, id });
+    const player = src === "pr" ? (await loadProspects()).players[id] : await api("player", { src, id });
+    if (!player) throw new Error("not in the prospect list");
     $("card-area").innerHTML = renderCard(player, buildCard(SPEC, player, CURRENT));
     document.title = `${player.name} · NHLe Prospect Cards`;
     if (scroll) $("card-area").scrollIntoView({ behavior: "smooth", block: "start" });
@@ -509,8 +511,12 @@ const ISO2 = {
 const teamLogo = code => /^[A-Z]{3}$/.test(code || "")
   ? `<img class="team-logo" src="https://assets.nhle.com/logos/nhl/svg/${code}_dark.svg" alt="${esc(code)}" title="${esc(code)}" loading="lazy">`
   : esc(code ?? "");
+const COUNTRY_NAMES = { CANADA: "ca", "UNITED STATES": "us", "U.S.A.": "us", SWEDEN: "se", FINLAND: "fi", RUSSIA: "ru",
+  CZECHIA: "cz", "CZECH REPUBLIC": "cz", SLOVAKIA: "sk", SWITZERLAND: "ch", GERMANY: "de", LATVIA: "lv", DENMARK: "dk",
+  NORWAY: "no", AUSTRIA: "at", BELARUS: "by", UKRAINE: "ua", FRANCE: "fr", "GREAT BRITAIN": "gb", KAZAKHSTAN: "kz", SLOVENIA: "si" };
 const flag = code => {
-  const iso = ISO2[String(code || "").toUpperCase()];
+  if (!code || /^n\/?a$/i.test(String(code).trim())) return "";
+  const iso = ISO2[String(code || "").toUpperCase()] ?? COUNTRY_NAMES[String(code || "").toUpperCase()];
   return iso ? `<img class="flag" src="https://flagcdn.com/${iso}.svg" alt="${esc(code)}" title="${esc(code)}" loading="lazy">` : esc(code ?? "");
 };
 
@@ -528,16 +534,21 @@ async function loadOutcomes(list, token) {
     for (let p; (p = todo.shift());) {
       const pick = s => ({ star: s?.star ?? null, nhler: s?.nhler ?? null, label: s?.label ?? "" });
       try {
-        const c = buildCard(SPEC, await api("player", { src: p.src, id: p.id }), CURRENT);
+        const c = buildCard(SPEC, p.src === "pr" ? PROSPECTS.players[p.id] : await api("player", { src: p.src, id: p.id }), CURRENT);
         outcomes.set(p.id, { latest: pick(c.latest), byRel: Object.fromEntries(c.seasons.map(s => [s.rel, pick(s)])) });
       } catch (e) { outcomes.set(p.id, { latest: pick(null), byRel: {} }); }
       done++;
       if (token !== draftToken) return;
-      show();
-      if (tab === "draft") renderDraft();
+      later();
+      if (p.src === "pr" && done % 25 === 0) await new Promise(r => setTimeout(r));   // local data: let the page breathe
     }
   };
+  // Redraw at most every 300 ms (a future class builds 1,000+ cards locally, near instantly)
+  let timer = null;
+  const later = () => { timer ??= setTimeout(() => { timer = null; show(); if (tab === "draft") renderDraft(); }, 300); };
   await Promise.all(Array.from({ length: 6 }, work));
+  clearTimeout(timer); timer = null;
+  if (token === draftToken) { show(); if (tab === "draft") renderDraft(); }
 }
 // A Star / NHLer cell shaded by its chance: the colour's strength runs from faint at 0% to full at 100%.
 function pctCell(p, color) {
@@ -589,14 +600,30 @@ function renderDraft() {
   const dividers = key === "overall" && dir === 1;   // round dividers only in pick order
   let round = null;
   $("browse-rows").innerHTML = list.map(p => {
-    const divider = dividers && p.round !== round ? `<tr class="round"><td colspan="${DRAFT_COLS.length}">Round ${(round = p.round)}</td></tr>` : "";
+    const divider = dividers && p.round != null && p.round !== round ? `<tr class="round"><td colspan="${DRAFT_COLS.length}">Round ${(round = p.round)}</td></tr>` : "";
     const o = shownSeason(p);
     const outcome = !o ? '<td class="pct dim">…</td><td class="pct dim">…</td><td class="l"></td>'
       : o.nhler == null ? '<td class="pct">–</td><td class="pct">–</td><td class="l dim" title="No rated season">–</td>'
       : pctCell(o.star, "--star") + pctCell(o.nhler, "--nhler") + `<td class="l dim">${esc(o.label)}</td>`;
-    return divider + row([[p.overall], [pickBtn(p), 1], [esc(p.pos), 1], [teamLogo(p.team), 1],
+    return divider + row([[p.overall ?? ""], [pickBtn(p), 1], [esc(p.pos), 1], [teamLogo(p.team), 1],
       [`${esc(p.club)} <span class="dim">${esc(p.league)}</span>`, 1], [flag(p.nation), 1]]).replace("</tr>", outcome + "</tr>");
   }).join("") || `<tr><td class="l msg">No picks for that year.</td></tr>`;
+}
+
+// The next two draft classes (web/prospects.py, refreshed monthly): every skater on the league sites born
+// in the class's window, with NHL Central Scouting's lists once published. "#" is the chosen list's rank.
+let PROSPECTS = null;
+async function loadProspects() {
+  PROSPECTS ??= await (await fetch("nhle-prospects.json")).json();
+  return PROSPECTS;
+}
+function prospectRows(cls) {
+  const list = $("draft-rank").value, ranks = cls.rankings[list] || {};
+  return cls.players.map(id => {
+    const p = PROSPECTS.players[id];
+    return { src: "pr", id, name: p.name, pos: p.position ?? "", team: "", club: p.team, league: String(p.league || "").toUpperCase(),
+      nation: p.nation, overall: ranks[id] ?? null, round: null };
+  });
 }
 
 async function browse() {
@@ -606,9 +633,23 @@ async function browse() {
   $("browse-rows").innerHTML = `<tr><td class="l msg">Loading…</td></tr>`;
   try {
     if (tab === "draft") {
-      const token = ++draftToken;
-      draftList = await api("draft", { year: $("draft-year").value });
-      if (token !== draftToken) return;
+      const token = ++draftToken, year = +$("draft-year").value, future = year > CURRENT;
+      $("rank-label").hidden = !future;
+      if (future) {
+        const cls = (await loadProspects()).classes[String(year)];
+        if (token !== draftToken) return;
+        if (!cls) { $("browse-rows").innerHTML = `<tr><td class="l msg">The ${year} class isn't listed yet.</td></tr>`; return; }
+        const lists = Object.keys(cls.rankings);
+        $("draft-rank").innerHTML = `<option value="">Model (star %)</option>` + lists.map(l => `<option>${esc(l)}</option>`).join("");
+        draftList = prospectRows(cls);
+        draftSort = { key: "star", dir: -1 };
+        $("draft-sort").value = "star";
+      } else {
+        const list = await api("draft", { year });
+        if (token !== draftToken) return;   // a newer class was picked while this one loaded
+        draftList = list;
+        if (draftSort.key === "star" && PROSPECTS) { draftSort = { key: "overall", dir: 1 }; $("draft-sort").value = "pick"; }
+      }
       $("draft-progress").textContent = "";
       renderDraft();
       loadOutcomes(draftList, token);
@@ -635,6 +676,12 @@ $("draft-sort").addEventListener("change", () => {
   else if (v === "star" || v === "nhler") setSort(v, -1);
 });
 $("draft-season").addEventListener("change", renderDraft);
+$("draft-rank").addEventListener("change", () => {
+  const cls = PROSPECTS?.classes[$("draft-year").value];
+  if (!cls) return;
+  draftList = prospectRows(cls);
+  if ($("draft-rank").value) setSort("overall", 1); else setSort("star", -1);
+});
 $("browse-head").addEventListener("click", e => {
   const th = e.target.closest("th[data-sort]");
   if (!th || tab !== "draft") return;
@@ -646,11 +693,15 @@ $("browse-head").addEventListener("click", e => {
 // ── Start ──────────────────────────────────────────────────────────────────────────────────────
 function fromUrl() {
   const q = new URLSearchParams(location.search);
-  if (/^\d+$/.test(q.get("id") || "")) show(q.get("src") === "ep" ? "ep" : "nhl", q.get("id"));
+  if (q.get("src") === "pr" && /^[\w-]{3,80}$/.test(q.get("id") || "")) show("pr", q.get("id"));
+  else if (/^\d+$/.test(q.get("id") || "")) show(q.get("src") === "ep" ? "ep" : "nhl", q.get("id"));
   else $("card-area").innerHTML = "";
 }
 const years = Array.from({ length: CURRENT - 2004 }, (_, i) => CURRENT - i);
-$("draft-year").innerHTML = years.map(y => `<option>${y}</option>`).join("");
+// The next two classes (draft year and D-1 this season) first, then every past draft
+$("draft-year").innerHTML = `<option value="${CURRENT + 2}">${CURRENT + 2} (D-1)</option>` +
+  `<option value="${CURRENT + 1}">${CURRENT + 1} (draft year)</option>` +
+  years.map(y => `<option${y === CURRENT ? " selected" : ""}>${y}</option>`).join("");
 $("league-season").innerHTML = years.map(y => `<option value="${y}">${seasonName(y)}</option>`).join("");
 $("league").innerHTML = LEAGUES.map(([slug, name]) => `<option value="${slug}">${esc(name)}</option>`).join("");
 $("notes").innerHTML = `
@@ -674,6 +725,10 @@ $("notes").innerHTML = `
     like the ones the models learned from: ${SPEC.min_gp}+ games in rated leagues, and at least half of the season's games in
     them.
     Every player is placed by their first eligible draft (18 by September 15), drafted or not: an overage pick's draft year is the year they could first have been picked.</p>
+  <p>The next two draft classes (${CURRENT + 1}, in their draft year, and ${CURRENT + 2}, in their D-1 season) list every skater
+    born in the class's window on the league websites we read: the CHL, USHL, junior A leagues, the CSSHL, Finland's
+    junior leagues and the SHL, among others, refreshed monthly. NHL Central Scouting's lists appear under Ranking once
+    published. The list moves on a year every September.</p>
   <p id="src-note"></p>`;
 
 api("sources", {}).then(s => { SOURCES = s; }).catch(() => {}).finally(() => {

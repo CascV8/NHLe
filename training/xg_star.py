@@ -52,6 +52,7 @@ MIN_GP = 40           # games (of an 82-game season; scaled for shorter ones) to
 SEASON_GAMES = 84     # value is per full season, at the 2026-27 schedule's 84 games
 BEST_N = 3            # a star's best 3 seasons average above the line...
 ELITE_PCT = 0.95      # ...or one season in the top 5% of regulars confirms him at once
+MIN_SEASON_GAMES = 41 # a season under way counts once teams are halfway through (no 15-game hot starts)
 log = logging.getLogger("xg_star")
 
 
@@ -155,15 +156,29 @@ def collect(first, last, workers=4):
 
 # ── Seasons, the star line, and stars ─────────────────────────────────────────
 
-def positions():
-    """F / D for every player with an NHL landing (training/scrape.py)."""
-    out = {}
-    with (HERE / "data" / "landings.jsonl").open(encoding="utf-8") as f:
-        for line in f:
-            r = json.loads(line)
-            p = r.get("position")
-            if p and p != "G":
-                out[r["playerId"]] = "D" if p == "D" else "F"
+POSITIONS = HERE / "positions.json"   # F / D by NHL id, committed
+
+
+def positions(seasons=()):
+    """F / D for every skater: the committed training/positions.json, the NHL landings when
+    training/scrape.py has fetched them, and the NHL's season stats for anyone still missing in
+    ``seasons``. Saved back, so the monthly job only looks up new players."""
+    out = {int(k): v for k, v in json.loads(POSITIONS.read_text(encoding="utf-8")).items()} if POSITIONS.exists() else {}
+    landings = HERE / "data" / "landings.jsonl"
+    if landings.exists():
+        with landings.open(encoding="utf-8") as f:
+            for line in f:
+                r = json.loads(line)
+                p = r.get("position")
+                if p and p != "G":
+                    out.setdefault(r["playerId"], "D" if p == "D" else "F")
+    for y in seasons:
+        stats = ps.nhl.skater_stats(int(y))
+        if "position_code" in stats:
+            for pid, p in zip(stats.player_id, stats.position_code):
+                if pid == pid and p and p != "G":
+                    out.setdefault(int(pid), "D" if p == "D" else "F")
+    POSITIONS.write_text(json.dumps({str(k): v for k, v in sorted(out.items())}), encoding="utf-8")
     return out
 
 
@@ -178,18 +193,41 @@ def pareto_cut(values, n_players):
     return int(np.argmin(np.abs(share_players + share_value - 1))) + 1
 
 
-def seasons():
+TOTALS = HERE / "xg_totals.csv"   # per season, team and player, committed: the stars rebuild without the game cache
+
+
+def totals():
+    """Season totals per (season, team, player): games, 5-on-5 seconds, on-ice xGF/xGA, own xG,
+    and the team's games. From the per-game cache for the seasons it has, the committed
+    training/xg_totals.csv for the rest; the merged table is written back."""
     frames = []
-    for folder in sorted(CACHE.iterdir()):
+    for folder in sorted(CACHE.iterdir()) if CACHE.exists() else []:
         files = sorted(folder.glob("*.parquet"))
-        if files:
-            frames.append(pd.concat([pd.read_parquet(f) for f in files], ignore_index=True).assign(season=int(folder.name)))
-    g = pd.concat(frames, ignore_index=True)
-    pos = positions()
+        if not files:
+            continue
+        g = pd.concat([pd.read_parquet(f) for f in files], ignore_index=True)
+        t = g.groupby(["team", "player_id"], as_index=False).agg(
+            gp=("game_id", "nunique"), toi5=("toi5", "sum"), xgf=("xgf", "sum"), xga=("xga", "sum"), ixg=("ixg", "sum"))
+        t = t.merge(g.groupby("team").game_id.nunique().rename("team_gp").reset_index(), on="team")
+        frames.append(t.assign(season=int(folder.name)))
+    fresh = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+    if TOTALS.exists():
+        old = pd.read_csv(TOTALS)
+        old = old[~old.season.isin(set(fresh.season))] if len(fresh) else old
+        fresh = pd.concat([old, fresh], ignore_index=True)
+    fresh = fresh.sort_values(["season", "team", "player_id"])[
+        ["season", "team", "player_id", "gp", "team_gp", "toi5", "xgf", "xga", "ixg"]]
+    fresh.round(4).to_csv(TOTALS, index=False)
+    return fresh
+
+
+def seasons():
+    pt = totals()
+    known = positions()
+    missing = sorted(set(pt[~pt.player_id.isin(known)].season))   # seasons with players we can't place yet
+    pos = positions(missing) if missing else known
     # Team 5-on-5 totals: every shot and second is credited to five skaters a side.
-    team = (g.groupby(["season", "team"])[["toi5", "xgf", "xga"]].sum() / 5).add_prefix("team_")
-    pt = g.groupby(["season", "team", "player_id"], as_index=False).agg(
-        gp=("game_id", "nunique"), toi5=("toi5", "sum"), xgf=("xgf", "sum"), xga=("xga", "sum"), ixg=("ixg", "sum"))
+    team = (pt.groupby(["season", "team"])[["toi5", "xgf", "xga"]].sum() / 5).add_prefix("team_")
     pt = pt.merge(team.reset_index(), on=["season", "team"])
     # His team with him off the ice, and his on-ice rate above it, per team (for traded players)
     off_toi = (pt.team_toi5 - pt.toi5).clip(lower=1)
@@ -202,9 +240,9 @@ def seasons():
     s["net60"] = (s.xgf - s.xga) / (s.toi5 / 3600).where(s.toi5 > 0)
     s["rel60"] = s.rel_xg / (s.toi5 / 3600).where(s.toi5 > 0)
     # Regulars: MIN_GP of an 82-game season, scaled to the season's length (48 in 2012-13, 56 in 2020-21...)
-    team_games = g.groupby(["season", "team"]).game_id.nunique().groupby("season").max()
+    team_games = pt.groupby("season").team_gp.max()
     s["min_gp"] = (MIN_GP * s.season.map(team_games) / 82).round()
-    s["regular"] = (s.gp >= s.min_gp) & (s.toi5 > 0)
+    s["regular"] = (s.gp >= s.min_gp) & (s.toi5 > 0) & (s.season.map(team_games) >= MIN_SEASON_GAMES)
     s["ixg_pg"] = s.ixg / s.gp
     avg_ixg = s[s.regular].groupby(["season", "pos"]).ixg_pg.mean().rename("avg_ixg_pg")
     s = s.merge(avg_ixg.reset_index(), on=["season", "pos"], how="left")
@@ -264,6 +302,11 @@ if __name__ == "__main__":
     if sys.argv[1] == "collect":
         collect(int(sys.argv[2]), int(sys.argv[3]), *(int(a) for a in sys.argv[4:5]))
     elif sys.argv[1] == "seasons":
+        seasons()
+    elif sys.argv[1] == "update":   # the monthly job: this season's new games, then the stars
+        today = pd.Timestamp.today()
+        y = today.year if today.month >= 9 else today.year - 1
+        collect(y, y, 2)
         seasons()
     elif sys.argv[1] == "game":
         g = int(sys.argv[2])

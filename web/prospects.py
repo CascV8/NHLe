@@ -11,8 +11,9 @@ A class's players are 18 by September 15 of its draft year and not 18 by Septemb
 of the year before.
 
 Players are matched across leagues by name and birth date. Sites that don't publish
-birth dates (Liiga, the Swiss and German leagues) are matched by name to a player with
-one in the same country, when the name is unique there.
+birth dates (the NCAA, Liiga, the Swiss and German leagues) are matched by name to a
+player with one in the same region (North America, or the same European country), when
+the name is unique there: an NCAA freshman by his junior seasons.
 
 Needs puckscrape (pip install git+https://github.com/CascV8/Puckscrape.git).
 """
@@ -32,7 +33,10 @@ WEB = Path(__file__).resolve().parent
 OUT = WEB / "prospects.json"
 NATIONS = WEB / "prospect_nations.json"   # "client:player id" -> country, from HockeyTech profiles (kept)
 RANKINGS = "https://api-web.nhle.com/v1/draft/rankings/{year}/{category}"
-SKIP = {"ncaa", "sdhl", "auroraliiga"}          # NCAA: too slow for a monthly job; women's leagues
+SKIP = {"sdhl", "auroraliiga"}                  # women's leagues
+# Name matching for sites without birth dates runs within a region: North America is one (a freshman's
+# NCAA line matches his junior seasons in Canada or the US), each European country its own.
+REGION = {"Canada": "North America", "USA": "North America"}
 KEYS = {"hockeyallsvenskan": "allsvenskan", "extraliga": "czechia", "maxa-liga": "czechia2"}
 FINNISH_JUNIOR = {"u18-sm-sarja", "u20-sm-sarja"}
 
@@ -94,7 +98,7 @@ def tables(seasons):
                 bcol = next((c for c in ("birthdate", "birth_date") if c in df), None)
                 for r in df.to_dict("records"):
                     rows.append({
-                        "code": code, "country": country, "season": y, "type": "reg" if phase == "regular" else "po",
+                        "code": code, "country": REGION.get(country, country), "season": y, "type": "reg" if phase == "regular" else "po",
                         "name": r.get("player"), "key": name_key(r.get("player")), "born": birth(r.get(bcol)) if bcol else None,
                         "pos": position(r.get("position")), "team": r.get("team") or "",
                         "nation": r.get("birthcntry") or r.get("nationality") or "", "site_id": r.get("player_id"),
@@ -144,8 +148,16 @@ def build(today=None):
     classes = {y + 1: "draft year", y + 2: "D-1"}
     # Birth dates for players listed without one: the unique same-name player with one in the same country
     known = t.dropna(subset=["born"]).groupby(["country", "key"]).born.agg(lambda b: b.iloc[0] if b.nunique() == 1 else None)
-    t["born"] = [b if b else known.get((c, k)) for b, c, k in zip(t.born, t.country, t.key)]
+    t["born"] = [b if isinstance(b, str) else known.get((c, k)) for b, c, k in zip(t.born, t.country, t.key)]   # NaN is truthy
     t = t.dropna(subset=["born"])
+    # An NCAA line in a season the same name also played junior is two people (an older college player who
+    # shares a prospect's name): a teenager doesn't play both in one season, so the NCAA line goes.
+    junior = set(zip(t[(t.code != "ncaa") & (t.type == "reg")].key, t[(t.code != "ncaa") & (t.type == "reg")].born,
+                     t[(t.code != "ncaa") & (t.type == "reg")].season))
+    namesake = pd.Series([(k, b, y) in junior for k, b, y in zip(t.key, t.born, t.season)], index=t.index)
+    # Nor is anyone in college before 17 (on October 1 of the season): a younger "match" is a namesake too
+    too_young = pd.Series([b > f"{y - 17}-10-01" for b, y in zip(t.born, t.season)], index=t.index)
+    t = t[~((t.code == "ncaa") & (namesake | too_young))]
     players, lists = {}, {}
     nations = json.loads(NATIONS.read_text(encoding="utf-8")) if NATIONS.exists() else {}
     for draft_year, label in classes.items():

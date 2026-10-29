@@ -7,8 +7,8 @@
   "min_gp": 10,
   "min_pair": 10,
   "min_league": 25,
-  "pairs": 163,
-  "player_seasons": 17561
+  "pairs": 165,
+  "player_seasons": 17760
  },
  "factors": {
   "nhl": {
@@ -78,8 +78,8 @@
   },
   "khl": {
    "factor": 0.639126,
-   "log_se": 0.063,
-   "wls": 0.738798,
+   "log_se": 0.0631,
+   "wls": 0.738684,
    "first_pass": 0.629254,
    "solved": 13,
    "paths": [
@@ -148,8 +148,8 @@
   },
   "shl": {
    "factor": 0.566231,
-   "log_se": 0.0672,
-   "wls": 0.609427,
+   "log_se": 0.0606,
+   "wls": 0.609001,
    "first_pass": 0.515817,
    "solved": 5,
    "paths": [
@@ -213,10 +213,10 @@
   },
   "nl": {
    "factor": 0.471596,
-   "log_se": 0.0789,
-   "wls": 0.464455,
+   "log_se": 0.0733,
+   "wls": 0.464501,
    "first_pass": 0.471596,
-   "solved": 31,
+   "solved": 32,
    "paths": [
     [
      "sl",
@@ -258,10 +258,10 @@
   },
   "czechia": {
    "factor": 0.440633,
-   "log_se": 0.071,
-   "wls": 0.456055,
+   "log_se": 0.0717,
+   "wls": 0.455885,
    "first_pass": 0.43644,
-   "solved": 28,
+   "solved": 29,
    "paths": [
     [
      "czechia2",
@@ -323,10 +323,10 @@
   },
   "del": {
    "factor": 0.422002,
-   "log_se": 0.1176,
-   "wls": 0.401656,
+   "log_se": 0.1174,
+   "wls": 0.40169,
    "first_pass": 0.422002,
-   "solved": 36,
+   "solved": 37,
    "paths": [
     [
      "del2",
@@ -368,8 +368,8 @@
   },
   "liiga": {
    "factor": 0.416034,
-   "log_se": 0.0729,
-   "wls": 0.40421,
+   "log_se": 0.0763,
+   "wls": 0.403944,
    "first_pass": 0.380687,
    "solved": 8,
    "paths": [
@@ -449,7 +449,7 @@
   "ahl": {
    "factor": 0.384612,
    "log_se": 0.0174,
-   "wls": 0.389818,
+   "wls": 0.389826,
    "first_pass": 0.379607,
    "solved": 1,
    "paths": [
@@ -533,8 +533,8 @@
   },
   "vhl": {
    "factor": 0.240959,
-   "log_se": 0.0668,
-   "wls": 0.277158,
+   "log_se": 0.0683,
+   "wls": 0.277111,
    "first_pass": 0.219154,
    "solved": 14,
    "paths": [
@@ -568,8 +568,8 @@
   },
   "wjc-20": {
    "factor": 0.240798,
-   "log_se": 0.0588,
-   "wls": 0.24846,
+   "log_se": 0.0524,
+   "wls": 0.248539,
    "first_pass": 0.270304,
    "solved": 3,
    "paths": [
@@ -703,10 +703,10 @@
   },
   "icehl": {
    "factor": 0.229524,
-   "log_se": 0.2477,
-   "wls": 0.233298,
+   "log_se": 0.234,
+   "wls": 0.233264,
    "first_pass": 0.229524,
-   "solved": 43,
+   "solved": 44,
    "paths": [
     [
      "liiga",
@@ -733,8 +733,8 @@
   },
   "allsvenskan": {
    "factor": 0.227984,
-   "log_se": 0.0757,
-   "wls": 0.250745,
+   "log_se": 0.0715,
+   "wls": 0.250546,
    "first_pass": 0.218721,
    "solved": 6,
    "paths": [
@@ -783,10 +783,10 @@
   },
   "slovakia": {
    "factor": 0.220816,
-   "log_se": 0.0916,
-   "wls": 0.222161,
+   "log_se": 0.0845,
+   "wls": 0.222214,
    "first_pass": 0.222235,
-   "solved": 30,
+   "solved": 31,
    "paths": [
     [
      "wjc-20",
@@ -838,8 +838,8 @@
   },
   "ncaa": {
    "factor": 0.210347,
-   "log_se": 0.0609,
-   "wls": 0.196531,
+   "log_se": 0.0586,
+   "wls": 0.196574,
    "first_pass": 0.210347,
    "solved": 4,
    "paths": [
@@ -873,10 +873,10 @@
   },
   "czechia2": {
    "factor": 0.145619,
-   "log_se": 0.0798,
-   "wls": 0.152082,
+   "log_se": 0.0784,
+   "wls": 0.152017,
    "first_pass": 0.145022,
-   "solved": 29,
+   "solved": 30,
    "paths": [
     [
      "czechia",
@@ -908,8 +908,8 @@
   },
   "mestis": {
    "factor": 0.142682,
-   "log_se": 0.1014,
-   "wls": 0.139508,
+   "log_se": 0.1111,
+   "wls": 0.139387,
    "first_pass": 0.147871,
    "solved": 10,
    "paths": [
@@ -953,8 +953,8 @@
   },
   "echl": {
    "factor": 0.135897,
-   "log_se": 0.0265,
-   "wls": 0.138979,
+   "log_se": 0.0263,
+   "wls": 0.138982,
    "first_pass": 0.134079,
    "solved": 2,
    "paths": [
@@ -988,10 +988,10 @@
   },
   "del2": {
    "factor": 0.127676,
-   "log_se": 0.1879,
-   "wls": 0.12152,
+   "log_se": 0.1859,
+   "wls": 0.121531,
    "first_pass": 0.127676,
-   "solved": 40,
+   "solved": 41,
    "paths": [
     [
      "del",
@@ -1007,74 +1007,79 @@
    "from_tables": 58
   },
   "ushl": {
-   "factor": 0.127513,
-   "log_se": 0.0922,
-   "wls": 0.13895,
+   "factor": 0.125773,
+   "log_se": 0.0888,
+   "wls": 0.140071,
    "first_pass": 0.119627,
    "solved": 17,
    "paths": [
     [
+     "ntdp",
+     0.3067,
+     0.12184
+    ],
+    [
      "nahl",
-     0.4312,
+     0.299,
      0.122583
     ],
     [
      "wjc-18",
-     0.2602,
+     0.1804,
      0.105024
     ],
     [
      "bchl",
-     0.114,
+     0.079,
      0.157162
     ],
     [
      "wjc-20",
-     0.0917,
+     0.0636,
      0.157458
     ],
     [
      "ohl",
-     0.026,
+     0.018,
      0.13235
     ],
     [
      "whl",
-     0.0211,
+     0.0146,
      0.169181
     ],
     [
      "ajhl",
-     0.0173,
+     0.012,
      0.058033
     ],
     [
      "cchl",
-     0.0136,
+     0.0095,
      0.238765
     ],
     [
      "qmjhl",
-     0.0124,
+     0.0086,
      0.12552
     ],
     [
      "slovakia",
-     0.0124,
+     0.0086,
      0.172906
     ]
    ],
-   "players": 807,
+   "players": 1164,
    "nhl_direct": 0,
-   "links": 10,
+   "links": 11,
    "from_ep": 404,
    "from_hockeydb": 0,
    "from_tables": 197
   },
   "ohl": {
    "factor": 0.124959,
-   "log_se": 0.0762,
-   "wls": 0.124029,
+   "log_se": 0.0744,
+   "wls": 0.124125,
    "first_pass": 0.131324,
    "solved": 16,
    "paths": [
@@ -1133,10 +1138,10 @@
   },
   "sl": {
    "factor": 0.123086,
-   "log_se": 0.1002,
-   "wls": 0.121223,
+   "log_se": 0.1065,
+   "wls": 0.121235,
    "first_pass": 0.123086,
-   "solved": 32,
+   "solved": 33,
    "paths": [
     [
      "nl",
@@ -1153,10 +1158,10 @@
   },
   "whl": {
    "factor": 0.121465,
-   "log_se": 0.081,
-   "wls": 0.123852,
+   "log_se": 0.079,
+   "wls": 0.124039,
    "first_pass": 0.126938,
-   "solved": 19,
+   "solved": 20,
    "paths": [
     [
      "wjc-20",
@@ -1221,112 +1226,12 @@
    "from_hockeydb": 0,
    "from_tables": 483
   },
-  "wjc-18": {
-   "factor": 0.116855,
-   "log_se": 0.0728,
-   "wls": 0.121016,
-   "first_pass": 0.104565,
-   "solved": 12,
-   "paths": [
-    [
-     "ushl",
-     0.1996,
-     0.119104
-    ],
-    [
-     "u20-nationell",
-     0.1559,
-     0.090711
-    ],
-    [
-     "ohl",
-     0.1017,
-     0.149751
-    ],
-    [
-     "u20-sm-sarja",
-     0.0989,
-     0.105375
-    ],
-    [
-     "whl",
-     0.0884,
-     0.156871
-    ],
-    [
-     "shl",
-     0.058,
-     0.080671
-    ],
-    [
-     "wjc-20",
-     0.057,
-     0.131194
-    ],
-    [
-     "mhl",
-     0.0494,
-     0.065137
-    ],
-    [
-     "liiga",
-     0.0409,
-     0.140787
-    ],
-    [
-     "qmjhl",
-     0.0371,
-     0.180547
-    ],
-    [
-     "czechia-u20",
-     0.0304,
-     0.089562
-    ],
-    [
-     "allsvenskan",
-     0.0228,
-     0.099765
-    ],
-    [
-     "czechia",
-     0.02,
-     0.114278
-    ],
-    [
-     "czechia2",
-     0.0114,
-     0.095574
-    ],
-    [
-     "mestis",
-     0.0095,
-     0.155745
-    ],
-    [
-     "u18-nationell",
-     0.0095,
-     0.069351
-    ],
-    [
-     "u18-sm-sarja",
-     0.0095,
-     0.113922
-    ]
-   ],
-   "players": 1052,
-   "nhl_direct": 0,
-   "links": 17,
-   "from_ep": 0,
-   "from_hockeydb": 0,
-   "from_tables": 0
-  },
   "qmjhl": {
    "factor": 0.115403,
-   "log_se": 0.0988,
-   "wls": 0.111562,
+   "log_se": 0.0816,
+   "wls": 0.111692,
    "first_pass": 0.11692,
-   "solved": 26,
+   "solved": 27,
    "paths": [
     [
      "wjc-20",
@@ -1391,10 +1296,140 @@
    "from_hockeydb": 0,
    "from_tables": 309
   },
+  "wjc-18": {
+   "factor": 0.114695,
+   "log_se": 0.0735,
+   "wls": 0.120632,
+   "first_pass": 0.104565,
+   "solved": 12,
+   "paths": [
+    [
+     "ushl",
+     0.1733,
+     0.119104
+    ],
+    [
+     "u20-nationell",
+     0.1353,
+     0.090711
+    ],
+    [
+     "ntdp",
+     0.132,
+     0.100493
+    ],
+    [
+     "ohl",
+     0.0883,
+     0.149751
+    ],
+    [
+     "u20-sm-sarja",
+     0.0858,
+     0.105375
+    ],
+    [
+     "whl",
+     0.0767,
+     0.156871
+    ],
+    [
+     "shl",
+     0.0503,
+     0.080671
+    ],
+    [
+     "wjc-20",
+     0.0495,
+     0.131194
+    ],
+    [
+     "mhl",
+     0.0429,
+     0.065137
+    ],
+    [
+     "liiga",
+     0.0355,
+     0.140787
+    ],
+    [
+     "qmjhl",
+     0.0322,
+     0.180547
+    ],
+    [
+     "czechia-u20",
+     0.0264,
+     0.089562
+    ],
+    [
+     "allsvenskan",
+     0.0198,
+     0.099765
+    ],
+    [
+     "czechia",
+     0.0173,
+     0.114278
+    ],
+    [
+     "czechia2",
+     0.0099,
+     0.095574
+    ],
+    [
+     "mestis",
+     0.0083,
+     0.155745
+    ],
+    [
+     "u18-nationell",
+     0.0083,
+     0.069351
+    ],
+    [
+     "u18-sm-sarja",
+     0.0083,
+     0.113922
+    ]
+   ],
+   "players": 1212,
+   "nhl_direct": 0,
+   "links": 18,
+   "from_ep": 0,
+   "from_hockeydb": 0,
+   "from_tables": 0
+  },
+  "ntdp": {
+   "factor": 0.104343,
+   "log_se": 0.0933,
+   "wls": 0.12157,
+   "first_pass": 0.104343,
+   "solved": 18,
+   "paths": [
+    [
+     "ushl",
+     0.6905,
+     0.102447
+    ],
+    [
+     "wjc-18",
+     0.3095,
+     0.108571
+    ]
+   ],
+   "players": 517,
+   "nhl_direct": 0,
+   "links": 2,
+   "from_ep": 0,
+   "from_hockeydb": 0,
+   "from_tables": 0
+  },
   "mhl": {
    "factor": 0.090229,
-   "log_se": 0.0662,
-   "wls": 0.104321,
+   "log_se": 0.0685,
+   "wls": 0.104298,
    "first_pass": 0.090229,
    "solved": 15,
    "paths": [
@@ -1428,8 +1463,8 @@
   },
   "u20-sm-sarja": {
    "factor": 0.088197,
-   "log_se": 0.1064,
-   "wls": 0.08298,
+   "log_se": 0.1168,
+   "wls": 0.082895,
    "first_pass": 0.081516,
    "solved": 9,
    "paths": [
@@ -1473,10 +1508,10 @@
   },
   "hockeyettan": {
    "factor": 0.077522,
-   "log_se": 0.1694,
-   "wls": 0.084337,
+   "log_se": 0.1459,
+   "wls": 0.08424,
    "first_pass": 0.077522,
-   "solved": 41,
+   "solved": 42,
    "paths": [
     [
      "u20-nationell",
@@ -1498,10 +1533,10 @@
   },
   "bchl": {
    "factor": 0.074667,
-   "log_se": 0.0899,
-   "wls": 0.078723,
+   "log_se": 0.084,
+   "wls": 0.078981,
    "first_pass": 0.073525,
-   "solved": 20,
+   "solved": 21,
    "paths": [
     [
      "ajhl",
@@ -1583,8 +1618,8 @@
   },
   "u20-nationell": {
    "factor": 0.073953,
-   "log_se": 0.086,
-   "wls": 0.082893,
+   "log_se": 0.0779,
+   "wls": 0.082775,
    "first_pass": 0.071147,
    "solved": 7,
    "paths": [
@@ -1628,10 +1663,10 @@
   },
   "czechia-u20": {
    "factor": 0.057781,
-   "log_se": 0.1083,
-   "wls": 0.062322,
+   "log_se": 0.0982,
+   "wls": 0.062229,
    "first_pass": 0.057781,
-   "solved": 39,
+   "solved": 40,
    "paths": [
     [
      "czechia",
@@ -1658,10 +1693,10 @@
   },
   "nahl": {
    "factor": 0.053967,
-   "log_se": 0.0905,
-   "wls": 0.05948,
+   "log_se": 0.0882,
+   "wls": 0.05981,
    "first_pass": 0.050805,
-   "solved": 18,
+   "solved": 19,
    "paths": [
     [
      "ushl",
@@ -1708,10 +1743,10 @@
   },
   "suomi-sarja": {
    "factor": 0.049591,
-   "log_se": 0.2317,
-   "wls": 0.046288,
+   "log_se": 0.2519,
+   "wls": 0.046245,
    "first_pass": 0.049591,
-   "solved": 35,
+   "solved": 36,
    "paths": [
     [
      "mestis",
@@ -1738,10 +1773,10 @@
   },
   "ajhl": {
    "factor": 0.048531,
-   "log_se": 0.1173,
-   "wls": 0.051129,
+   "log_se": 0.1051,
+   "wls": 0.051277,
    "first_pass": 0.047644,
-   "solved": 21,
+   "solved": 22,
    "paths": [
     [
      "bchl",
@@ -1803,10 +1838,10 @@
   },
   "cchl": {
    "factor": 0.047586,
-   "log_se": 0.1088,
-   "wls": 0.04844,
+   "log_se": 0.1031,
+   "wls": 0.048546,
    "first_pass": 0.048022,
-   "solved": 27,
+   "solved": 28,
    "paths": [
     [
      "ojhl",
@@ -1868,10 +1903,10 @@
   },
   "ojhl": {
    "factor": 0.04237,
-   "log_se": 0.0977,
-   "wls": 0.040772,
+   "log_se": 0.1042,
+   "wls": 0.040847,
    "first_pass": 0.036107,
-   "solved": 24,
+   "solved": 25,
    "paths": [
     [
      "gohl",
@@ -1928,10 +1963,10 @@
   },
   "sjhl": {
    "factor": 0.040185,
-   "log_se": 0.1012,
-   "wls": 0.041612,
+   "log_se": 0.0985,
+   "wls": 0.041726,
    "first_pass": 0.037879,
-   "solved": 22,
+   "solved": 23,
    "paths": [
     [
      "ajhl",
@@ -1993,8 +2028,8 @@
   },
   "u18-sm-sarja": {
    "factor": 0.040145,
-   "log_se": 0.1453,
-   "wls": 0.034689,
+   "log_se": 0.1612,
+   "wls": 0.034653,
    "first_pass": 0.039813,
    "solved": 11,
    "paths": [
@@ -2033,10 +2068,10 @@
   },
   "mjahl": {
    "factor": 0.031891,
-   "log_se": 0.1813,
-   "wls": 0.030315,
+   "log_se": 0.1442,
+   "wls": 0.03036,
    "first_pass": 0.031891,
-   "solved": 34,
+   "solved": 35,
    "paths": [
     [
      "qmjhl",
@@ -2068,10 +2103,10 @@
   },
   "mjhl": {
    "factor": 0.030916,
-   "log_se": 0.1282,
-   "wls": 0.032824,
+   "log_se": 0.1124,
+   "wls": 0.032914,
    "first_pass": 0.030267,
-   "solved": 23,
+   "solved": 24,
    "paths": [
     [
      "sjhl",
@@ -2128,10 +2163,10 @@
   },
   "gohl": {
    "factor": 0.028614,
-   "log_se": 0.1267,
-   "wls": 0.027639,
+   "log_se": 0.1216,
+   "wls": 0.02768,
    "first_pass": 0.029559,
-   "solved": 25,
+   "solved": 26,
    "paths": [
     [
      "ojhl",
@@ -2178,10 +2213,10 @@
   },
   "u18-nationell": {
    "factor": 0.027171,
-   "log_se": 0.1309,
-   "wls": 0.031338,
+   "log_se": 0.117,
+   "wls": 0.031288,
    "first_pass": 0.027171,
-   "solved": 37,
+   "solved": 38,
    "paths": [
     [
      "u20-nationell",
@@ -2203,10 +2238,10 @@
   },
   "csshl": {
    "factor": 0.023165,
-   "log_se": 0.1666,
-   "wls": 0.022602,
+   "log_se": 0.1829,
+   "wls": 0.022636,
    "first_pass": 0.023165,
-   "solved": 42,
+   "solved": 43,
    "paths": [
     [
      "whl",
@@ -2223,10 +2258,10 @@
   },
   "vijhl": {
    "factor": 0.018905,
-   "log_se": 0.2991,
-   "wls": 0.01855,
+   "log_se": 0.2939,
+   "wls": 0.018603,
    "first_pass": 0.018905,
-   "solved": 38,
+   "solved": 39,
    "paths": [
     [
      "bchl",
@@ -2258,10 +2293,10 @@
   },
   "kijhl": {
    "factor": 0.014033,
-   "log_se": 0.152,
-   "wls": 0.014031,
+   "log_se": 0.1462,
+   "wls": 0.014072,
    "first_pass": 0.012867,
-   "solved": 33,
+   "solved": 34,
    "paths": [
     [
      "bchl",

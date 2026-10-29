@@ -39,17 +39,17 @@ import sys
 # For the WJC-20, PLAYED and PER_PTS84 each also move by *_WJC_AGE per year of
 # age at the tournament (Jan 1) away from WJC_AGE_CENTER: making an under-20
 # team at 17 says more than making it at 19.
-NHLER_INTERCEPT = -2.955822
-NHLER_COEF      =  0.136288
+NHLER_INTERCEPT = -2.955273
+NHLER_COEF      =  0.136216
 NHLER_SHAPE     = 'linear'   # COEF multiplies shape(pts/84): "linear", "log" (log(1+x)) or "sqrt"
-NHLER_WJC       = {"wjc-20": (0.658006, 0.005241)}
-NHLER_WJC_AGE   = {"wjc-20": (-0.184763, 0.002089)}
+NHLER_WJC       = {"wjc-20": (0.658190, 0.004844)}
+NHLER_WJC_AGE   = {"wjc-20": (-0.188814, 0.003166)}
 
-STAR_INTERCEPT  = -7.261109
-STAR_COEF       =  1.234795
+STAR_INTERCEPT  = -7.261932
+STAR_COEF       =  1.234345
 STAR_SHAPE      = 'sqrt'
-STAR_WJC        = {"wjc-20": (0.161139, 0.030516)}
-STAR_WJC_AGE    = {"wjc-20": (-0.320876, 0.012614)}
+STAR_WJC        = {"wjc-20": (0.153800, 0.030143)}
+STAR_WJC_AGE    = {"wjc-20": (-0.313581, 0.014001)}
 
 WJC_AGE_CENTER  = 19.0
 WJC_AGE_TYPICAL = 19.7   # median age at the WJC-20 for this season, the default
@@ -74,12 +74,13 @@ LEAGUE_FACTORS = {
     "mestis":        0.142682,
     "echl":          0.135897,
     "del2":          0.127676,
-    "ushl":          0.127513,
+    "ushl":          0.125773,
     "ohl":           0.124959,
     "sl":            0.123086,
     "whl":           0.121465,
-    "wjc-18":        0.116855,
     "qmjhl":         0.115403,
+    "wjc-18":        0.114695,
+    "ntdp":          0.104343,
     "mhl":           0.090229,
     "u20-sm-sarja":  0.088197,
     "hockeyettan":   0.077522,
@@ -87,7 +88,6 @@ LEAGUE_FACTORS = {
     "u20-nationell": 0.073953,
     "czechia-u20":   0.057781,
     "nahl":          0.053967,
-    "suomi-sarja":   0.049591,
     "ajhl":          0.048531,
     "cchl":          0.047586,
     "ojhl":          0.042370,
@@ -217,7 +217,7 @@ def show_result(pts84, stints=None, wjc_stints=(), known_nhler=False, known_star
     print(f"  ██ NHL player (200 GP+): {pn:.1%}  (includes star %)")
     print(f"  ░░ Bust (<200 GP)      : {1 - pn:.1%}")
     print()
-    print("  Star ≈ Quinton Byfield, Jordan Eberle, Cutter Gauthier, Brayden Point, Filip Forsberg")
+    print("  Star ≈ ")
     print("  " + "═" * 52)
     print()
 

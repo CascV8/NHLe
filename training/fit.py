@@ -140,6 +140,7 @@ LEAGUE_ALIASES = {
     "Czech U20": "czechia-u20", "Czech U18": "czechia-u18", "Fin-U18": "u18-sm-sarja",
     "Swe-U18": "u18-nationell", "Swiss-Jr.": "swiss-u20", "OPJHL": "ojhl", "QAAA": "qc-u18-aaa",
     "CHL": "central-hl", "CzRep-3": "czechia3", "Swiss-2": "sl",
+    "NTDP": "ntdp", "U-18": "ntdp", "U-17": "ntdp",   # the USNTDP's schedule outside the USHL (college, international...)
     "WJC-20": "wjc-20", "WJC-A": "wjc-20",
     "WJC-18": "wjc-18", "WJ18-A": "wjc-18",
 }
@@ -148,8 +149,7 @@ LEAGUE_ALIASES = {
 EVENTS = {"WC", "WC-A", "WCup", "Olympics", "OG", "OGQ", "Champions HL", "Spengler Cup",
           "M-Cup", "Exhib.", "International", "Ivan Hlinka Memorial", "Hlinka Gretzky Cup",
           "WHC-17", "WJAC-19", "JCWC", "Tel-Cup", "Continental Cup", "WJC-B", "WJ18-B",
-          "EHT", "TV-Pucken", "U17-Dev", "WJC-20 D1A", "WJC-18 D1A", "WC D1A",
-          "U-18", "U-17"}   # the USNTDP schedule outside the USHL: its USHL games rate the season
+          "EHT", "TV-Pucken", "U17-Dev", "WJC-20 D1A", "WJC-18 D1A", "WC D1A"}
 
 
 def load_script(rel_path):

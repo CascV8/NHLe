@@ -36,17 +36,17 @@ import sys
 # For the WJC-20, PLAYED and PER_PTS84 each also move by *_WJC_AGE per year of
 # age at the tournament (Jan 1) away from WJC_AGE_CENTER: making an under-20
 # team at 17 says more than making it at 19.
-NHLER_INTERCEPT = -2.646960
-NHLER_COEF      =  0.285474
+NHLER_INTERCEPT = -2.658213
+NHLER_COEF      =  0.288800
 NHLER_SHAPE     = 'linear'   # COEF multiplies shape(pts/84): "linear", "log" (log(1+x)) or "sqrt"
-NHLER_WJC       = {"wjc-18": (0.483282, 0.043957), "wjc-20": (0.744568, 0.031409)}
-NHLER_WJC_AGE   = {"wjc-20": (-0.211467, 0.016661)}
+NHLER_WJC       = {"wjc-18": (0.503042, 0.040300), "wjc-20": (0.723127, 0.032912)}
+NHLER_WJC_AGE   = {"wjc-20": (-0.168248, 0.013657)}
 
-STAR_INTERCEPT  = -4.022165
-STAR_COEF       =  0.323548
+STAR_INTERCEPT  = -4.039207
+STAR_COEF       =  0.327581
 STAR_SHAPE      = 'linear'
-STAR_WJC        = {"wjc-18": (0.654663, 0.046494), "wjc-20": (0.365379, 0.050406)}
-STAR_WJC_AGE    = {"wjc-20": (-0.381586, 0.002973)}
+STAR_WJC        = {"wjc-18": (0.715612, 0.047069), "wjc-20": (0.349660, 0.051472)}
+STAR_WJC_AGE    = {"wjc-20": (-0.352392, 0.001019)}
 
 WJC_AGE_CENTER  = 19.0
 WJC_AGE_TYPICAL = 18.0   # median age at the WJC-20 for this season, the default
@@ -71,12 +71,13 @@ LEAGUE_FACTORS = {
     "mestis":        0.142682,
     "echl":          0.135897,
     "del2":          0.127676,
-    "ushl":          0.127513,
+    "ushl":          0.125773,
     "ohl":           0.124959,
     "sl":            0.123086,
     "whl":           0.121465,
-    "wjc-18":        0.116855,
     "qmjhl":         0.115403,
+    "wjc-18":        0.114695,
+    "ntdp":          0.104343,
     "mhl":           0.090229,
     "u20-sm-sarja":  0.088197,
     "hockeyettan":   0.077522,
@@ -84,7 +85,6 @@ LEAGUE_FACTORS = {
     "u20-nationell": 0.073953,
     "czechia-u20":   0.057781,
     "nahl":          0.053967,
-    "suomi-sarja":   0.049591,
     "ajhl":          0.048531,
     "cchl":          0.047586,
     "ojhl":          0.042370,
@@ -141,7 +141,7 @@ def wjc_log_odds(terms, age_terms, wjc, age=None):
 
 # pts/84 above this (the top 0.5% of the training sample) counts as this: the model
 # doesn't extrapolate past the seasons it learned from.
-PTS84_CAP = 14.028
+PTS84_CAP = 14.005
 
 
 def shape(pts84, kind):
@@ -214,7 +214,7 @@ def show_result(pts84, stints=None, wjc_stints=(), known_nhler=False, known_star
     print(f"  ██ NHL player (200 GP+): {pn:.1%}  (includes star %)")
     print(f"  ░░ Bust (<200 GP)      : {1 - pn:.1%}")
     print()
-    print("  Star ≈ Noah Hanifin, Ryker Evans, Roman Josi, Sean Walker, Gustav Forsling")
+    print("  Star ≈ ")
     print("  " + "═" * 52)
     print()
 

@@ -35,14 +35,14 @@ import sys
 # For the WJC-20, PLAYED and PER_PTS84 each also move by *_WJC_AGE per year of
 # age at the tournament (Jan 1) away from WJC_AGE_CENTER: making an under-20
 # team at 17 says more than making it at 19.
-NHLER_INTERCEPT = -6.175972
-NHLER_COEF      =  2.154227
+NHLER_INTERCEPT = -6.175948
+NHLER_COEF      =  2.154295
 NHLER_SHAPE     = 'log'   # COEF multiplies shape(pts/84): "linear", "log" (log(1+x)) or "sqrt"
 NHLER_WJC       = {}
 NHLER_WJC_AGE   = {}
 
-STAR_INTERCEPT  = -9.456090
-STAR_COEF       =  2.886130
+STAR_INTERCEPT  = -9.455491
+STAR_COEF       =  2.885957
 STAR_SHAPE      = 'log'
 STAR_WJC        = {}
 STAR_WJC_AGE    = {}
@@ -69,11 +69,12 @@ LEAGUE_FACTORS = {
     "mestis":        0.142682,
     "echl":          0.135897,
     "del2":          0.127676,
-    "ushl":          0.127513,
+    "ushl":          0.125773,
     "ohl":           0.124959,
     "sl":            0.123086,
     "whl":           0.121465,
     "qmjhl":         0.115403,
+    "ntdp":          0.104343,
     "mhl":           0.090229,
     "u20-sm-sarja":  0.088197,
     "hockeyettan":   0.077522,
@@ -81,7 +82,6 @@ LEAGUE_FACTORS = {
     "u20-nationell": 0.073953,
     "czechia-u20":   0.057781,
     "nahl":          0.053967,
-    "suomi-sarja":   0.049591,
     "ajhl":          0.048531,
     "cchl":          0.047586,
     "ojhl":          0.042370,
@@ -211,7 +211,7 @@ def show_result(pts84, stints=None, wjc_stints=(), known_nhler=False, known_star
     print(f"  ██ NHL player (200 GP+): {pn:.1%}  (includes star %)")
     print(f"  ░░ Bust (<200 GP)      : {1 - pn:.1%}")
     print()
-    print("  Star ≈ Noah Hanifin, Ryker Evans, Roman Josi, Sean Walker, Gustav Forsling")
+    print("  Star ≈ ")
     print("  " + "═" * 52)
     print()
 

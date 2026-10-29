@@ -180,10 +180,6 @@ tr.round td { z-index: 1; }
         <button type="button" data-tab="league" aria-pressed="false" id="league-tab" hidden>League</button>
       </div>
       <label for="draft-year" data-for="draft">Draft <select id="draft-year"></select></label>
-      <label for="draft-sort" data-for="draft">Sort <select id="draft-sort">
-        <option value="pick">Pick</option><option value="star">Star %</option><option value="nhler">NHLer %</option>
-        <option value="column" hidden>Column</option>
-      </select></label>
       <label for="draft-rank" data-for="draft" id="rank-label" hidden>Ranking <select id="draft-rank"></select></label>
       <label for="draft-season" data-for="draft">Season <select id="draft-season">
         <option value="latest">Latest</option><option value="-1">D-1</option><option value="0">DY</option>
@@ -557,8 +553,8 @@ function pctCell(p, color) {
   return `<td class="pct${p >= 0.55 ? " dark" : ""}" style="background:color-mix(in srgb, var(${color}) ${strength}%, transparent)">${pct(p)}</td>`;
 }
 
-// Sorting, like a spreadsheet: click a column header to sort by it, click again to reverse. The Sort
-// menu is a shortcut for the common ones. Numbers start high-to-low except the pick; text A-Z.
+// Sorting, like a spreadsheet: click a column header to sort by it, click again to reverse.
+// Numbers start high-to-low except the pick; text A-Z.
 const DRAFT_COLS = [
   ["overall", "#", ""], ["name", "Player", "l"], ["pos", "Pos", "l"], ["team", "Team", "l"],
   ["club", "Drafted from", "l"], ["nation", "Nation", "l"], ["star", "Star", ""], ["nhler", "NHLer", ""], ["season", "Season", "l"]];
@@ -576,8 +572,6 @@ function sortValue(p, key) {
 }
 function setSort(key, dir) {
   draftSort = { key, dir };
-  const menu = { overall: dir === 1 ? "pick" : "column", star: dir === -1 ? "star" : "column", nhler: dir === -1 ? "nhler" : "column" };
-  $("draft-sort").value = menu[key] ?? "column";
   renderDraft();
 }
 
@@ -643,12 +637,11 @@ async function browse() {
         $("draft-rank").innerHTML = `<option value="">Model (star %)</option>` + lists.map(l => `<option>${esc(l)}</option>`).join("");
         draftList = prospectRows(cls);
         draftSort = { key: "star", dir: -1 };
-        $("draft-sort").value = "star";
       } else {
         const list = await api("draft", { year });
         if (token !== draftToken) return;   // a newer class was picked while this one loaded
         draftList = list;
-        if (draftSort.key === "star" && PROSPECTS) { draftSort = { key: "overall", dir: 1 }; $("draft-sort").value = "pick"; }
+        if (draftSort.key === "star" && PROSPECTS) draftSort = { key: "overall", dir: 1 };
       }
       $("draft-progress").textContent = "";
       renderDraft();
@@ -670,11 +663,6 @@ document.addEventListener("click", e => {
   if (b?.classList.contains("dl-card")) downloadCard(b);
 });
 for (const id of ["draft-year", "league", "league-season"]) $(id).addEventListener("change", browse);
-$("draft-sort").addEventListener("change", () => {
-  const v = $("draft-sort").value;
-  if (v === "pick") setSort("overall", 1);
-  else if (v === "star" || v === "nhler") setSort(v, -1);
-});
 $("draft-season").addEventListener("change", renderDraft);
 $("draft-rank").addEventListener("change", () => {
   const cls = PROSPECTS?.classes[$("draft-year").value];
@@ -699,8 +687,7 @@ function fromUrl() {
 }
 const years = Array.from({ length: CURRENT - 2004 }, (_, i) => CURRENT - i);
 // The next two classes (draft year and D-1 this season) first, then every past draft
-$("draft-year").innerHTML = `<option value="${CURRENT + 2}">${CURRENT + 2} (D-1)</option>` +
-  `<option value="${CURRENT + 1}">${CURRENT + 1} (draft year)</option>` +
+$("draft-year").innerHTML = `<option>${CURRENT + 2}</option><option>${CURRENT + 1}</option>` +
   years.map(y => `<option${y === CURRENT ? " selected" : ""}>${y}</option>`).join("");
 $("league-season").innerHTML = years.map(y => `<option value="${y}">${seasonName(y)}</option>`).join("");
 $("league").innerHTML = LEAGUES.map(([slug, name]) => `<option value="${slug}">${esc(name)}</option>`).join("");

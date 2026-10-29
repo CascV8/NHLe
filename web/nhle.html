@@ -732,33 +732,7 @@ $("draft-year").innerHTML = `<option>${CURRENT + 2}</option><option>${CURRENT + 
   years.map(y => `<option${y === CURRENT ? " selected" : ""}>${y}</option>`).join("");
 $("league-season").innerHTML = years.map(y => `<option value="${y}">${seasonName(y)}</option>`).join("");
 $("league").innerHTML = LEAGUES.map(([slug, name]) => `<option value="${slug}">${esc(name)}</option>`).join("");
-$("notes").innerHTML = `
-  <p><b>How it works.</b> Each season's points, from every league with an NHL-equivalency factor (regular season and playoffs),
-    are scaled by that league's factor and turned into a rate per 84 games. The factors are network NHLe: solved together from
-    every player who played in two leagues in the same season. A
-    logistic model per position and draft-relative season (D-1 is the year before the draft, DY the draft year) turns that
-    rate into the chance of becoming an NHLer (200+ games) and a star. The World Juniors aren't pooled into the rate, where
-    seven games would barely register: making the team and scoring there are their own terms in the model, and
-    at the WJC-20 they count for more the younger the player is. On the line, a season with a World Juniors is
-    plotted at its league NHLe plus the WJC's effect expressed in the same pts/84 (the league rate that would give
-    the same NHLer odds without it). The table below splits it into league play and the WJC. A star is a
-    player whose best 3 NHL seasons average above that season's Pareto line on expected goals (scored with
-    our xG model): his 5-on-5 on-ice xG against his teammates', his own xG and his 5-on-5 primary assists,
-    per 84 games, with forwards and defensemen in one pool (about the top ${Math.round(SPEC.star_share.F * 100)}%
-    of forwards and ${Math.round(SPEC.star_share.D * 100)}% of defensemen), or one season in the top 5% at his
-    position (near the line last season:
-    ${esc(SPEC.star_examples.F.slice(0, 2).join(", "))}, ${esc(SPEC.star_examples.D.slice(0, 2).join(", "))}).
-    Once a player has one, his card shows him as a star (100%) from that season on.
-    Fit on the ${SPEC.classes[0]}-${SPEC.classes[1]} draft classes.</p>
-  <p>Leagues without a factor (minor hockey, most U18 and high-school leagues) are listed but left out. A season is rated only if it's
-    like the ones the models learned from: ${SPEC.min_gp}+ games in rated leagues, and at least half of the season's games in
-    them.
-    Every player is placed by their first eligible draft (18 by September 15), drafted or not: an overage pick's draft year is the year they could first have been picked.</p>
-  <p>The next two draft classes (${CURRENT + 1}, in their draft year, and ${CURRENT + 2}, in their D-1 season) list every skater
-    born in the class's window on the league websites we read: the CHL, USHL, junior A leagues, the CSSHL, Finland's
-    junior leagues and the SHL, among others, refreshed monthly. NHL Central Scouting's lists appear under Ranking once
-    published. The list moves on a year every September.</p>
-  <p id="src-note"></p>`;
+$("notes").innerHTML = `<p id="src-note"></p>`;
 
 api("sources", {}).then(s => { SOURCES = s; }).catch(() => {}).finally(() => {
   $("league-tab").hidden = !SOURCES.ep;

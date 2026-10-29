@@ -372,7 +372,7 @@ function renderCard(p, c) {
       <tbody>${detail || `<tr><td class="l msg" colspan="9">No seasons between ${seasonName(c.draftYear - 2)} and ${seasonName(c.draftYear + 4)}.</td></tr>`}</tbody>
     </table></div></div>
   </article>
-  <p class="dim" style="font-size:.84rem;margin:0">${played.some(s => s.inProgress) ? "* Season in progress: a few games swing pts/84 a lot. " : ""}${played.some(s => s.known && !s.starKnown) ? "† Already 200 NHL games, so NHLer is 100%. " : ""}${played.some(s => s.starKnown) ? "‡ Has had a star season by on-ice xG, so star is 100%. " : ""}Source: ${p.src === "ep" ? "Elite Prospects" : "NHL"}.</p>`;
+  <p class="dim" style="font-size:.84rem;margin:0">${played.some(s => s.inProgress) ? "* Season in progress: a few games swing pts/84 a lot. " : ""}${played.some(s => s.known && !s.starKnown) ? "† Already 200 NHL games, so NHLer is 100%. " : ""}${played.some(s => s.starKnown) ? "‡ Already confirmed a star by xG, so star is 100%. " : ""}Source: ${p.src === "ep" ? "Elite Prospects" : "NHL"}.</p>`;
 }
 
 // The page's Google web fonts as inline CSS for html-to-image, which can't read the cross-origin stylesheet
@@ -742,10 +742,11 @@ $("notes").innerHTML = `
     at the WJC-20 they count for more the younger the player is. On the line, a season with a World Juniors is
     plotted at its league NHLe plus the WJC's effect expressed in the same pts/84 (the league rate that would give
     the same NHLer odds without it). The table below splits it into league play and the WJC. A star is a
-    player with a star season by on-ice expected goals (scored with our xG model): his net xG above
-    replacement, at his average 5-on-5 minutes over 84 games, inside that season's Pareto group of regulars
-    at his position (about the top ${Math.round(SPEC.star_share.F * 100)}% of forwards and
-    ${Math.round(SPEC.star_share.D * 100)}% of defensemen; near the line last season:
+    player whose best 3 NHL seasons average above that season's Pareto line on expected goals (scored with
+    our xG model): his 5-on-5 on-ice xG against his teammates', his own xG and his 5-on-5 primary assists,
+    per 84 games, with forwards and defensemen in one pool (about the top ${Math.round(SPEC.star_share.F * 100)}%
+    of forwards and ${Math.round(SPEC.star_share.D * 100)}% of defensemen), or one season in the top 5% at his
+    position (near the line last season:
     ${esc(SPEC.star_examples.F.slice(0, 2).join(", "))}, ${esc(SPEC.star_examples.D.slice(0, 2).join(", "))}).
     Once a player has one, his card shows him as a star (100%) from that season on.
     Fit on the ${SPEC.classes[0]}-${SPEC.classes[1]} draft classes.</p>

@@ -28,12 +28,13 @@ WJC:      The World Juniors are not pooled into pts/84, where 7 games would be
           borrow from the trend instead of resting on a dozen players. A light
           ridge (WJC_RIDGE) keeps small terms near zero.
 Outcomes: NHL player = 200+ NHL regular-season games (through the latest season).
-          Star = NHL player with a star season by on-ice expected goals
-          (training/xg_star.py, scored with the xG model): his on-ice net xG
-          above replacement, at his average 5-on-5 minutes over 84 games,
-          inside that season's Pareto group of regulars (40+ games) at his
-          position (the split in "What's a point worth?"). training/stars.json
-          lists them and when.
+          Star = NHL player whose best 3 regular seasons (40+ games) average above
+          that season's Pareto line (the split in "What's a point worth?") on
+          expected goals (training/xg_star.py, scored with the xG model): his
+          5-on-5 on-ice net xG against his teammates', his own xG and his 5-on-5
+          primary assists, per 84 games, forwards and defensemen in one pool; or
+          one season in the top 5% at his position. training/stars.json lists
+          them and when.
 Model:    log-odds = INTERCEPT + COEF * shape(pts84) + sum over WJCs (PLAYED + PER_PTS84 * wjc84),
           shape = pts84, log(1 + pts84) or sqrt(pts84), picked per model and
           outcome by cross-validated log loss (a straight line in raw pts84
@@ -611,10 +612,11 @@ def write_report(out, draft):
         f"Draft classes {out['classes'][0]}–{out['classes'][1]}: {len(draft)} picks with an NHL id "
         f"({(draft.pos == 'F').sum()} forwards, {(draft.pos == 'D').sum()} defensemen). "
         f"League factors: network NHLe, {len(out['factors'])} leagues ([NETWORK.md](NETWORK.md)).",
-        f"NHL player = 200+ NHL games. Star = NHL player with a star season by on-ice xG "
-        "([xg_star.py](xg_star.py), scored with the xG model): on-ice net xG above replacement at his average 5-on-5 "
-        "minutes over 84 games, inside that season's Pareto group of regulars (40+ games) at his position (on average "
-        f"the top {t['F']:.0%} of forwards and {t['D']:.0%} of defensemen).",
+        f"NHL player = 200+ NHL games. Star = NHL player whose best 3 regular seasons (40+ games) average above "
+        "that season's Pareto line on expected goals ([xg_star.py](xg_star.py), scored with the xG model): 5-on-5 "
+        "on-ice net xG against his teammates', his own xG and his 5-on-5 primary assists, per 84 games, forwards and "
+        f"defensemen in one pool (on average the top {t['F']:.0%} of forwards and {t['D']:.0%} of defensemen), or "
+        "one season in the top 5% at his position.",
         f"Star examples near the line — F: {', '.join(out['star_examples']['F'])}; "
         f"D: {', '.join(out['star_examples']['D'])}.",
         "",

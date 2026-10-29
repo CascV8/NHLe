@@ -5,9 +5,11 @@ Predicts NHL outcomes from $season_desc.
 
 Outputs two probabilities on a single bar (Iacobelli-style):
   - P(NHL player) : reaches 200 NHL games
-  - P(Star)       : a star season by on-ice xG: net xG above replacement at his
-                    usual 5-on-5 minutes over 84 games, in that season's Pareto
-                    group of NHL $group_plural
+  - P(Star)       : a star by expected goals: his best 3 NHL seasons average
+                    above that season's Pareto line on 5-on-5 on-ice xG against
+                    his teammates, his own xG and his 5-on-5 primary assists, per
+                    84 games (forwards and defensemen in one pool), or one season
+                    in the top 5% of $group_plural
 $known_doc
 $wjc_doc
 

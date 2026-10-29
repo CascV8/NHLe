@@ -10,30 +10,34 @@ For every regular-season game (shift charts start in 2010-11): each unblocked
 skaters on the ice for it (from the NHL's shift charts), and each skater's
 5-on-5 time on ice is summed from the same charts.
 
-A player-season's value has two parts, both at his usual workload over a full
+A player-season's value has three parts, all at his usual workload over a full
 season of 84 games:
   - what happens at 5-on-5 with him on the ice, against his own team without him:
         (on-ice net xG/60 - his team's net xG/60 with him off) x 5-on-5 hours per game
     (xGA counts as negative xGF; comparing with his team's off-ice rate takes out
     team quality; a traded player is compared with each team, over his minutes there)
   - his own production: the xG of his own shots, every situation (power play
-    included), per game, above the average regular at his position that season.
+    included), per game, above the average regular at his position that season
+  - his playmaking: his 5-on-5 primary assists per game (the NHL's scoring-rates
+    report), above the average regular at his position that season.
 Using per-game rates, not totals, means an injury doesn't count against him while
 his role still does; the games floor (MIN_GP, scaled for short seasons) keeps
 call-ups from projecting a few hot games. The value is a total, so it adds up for
-the Pareto split of "What's a point worth?": per season and position, the top-N
-regulars by value whose share of regulars plus share of the (positive) total comes
-closest to 1. That value is the season's star line.
+the Pareto split of "What's a point worth?": per season, forwards and defensemen
+in one pool (split by position, every defenseman with a good on-ice number made
+the cut and stars ran defense-heavy), the top-N regulars by value whose share of
+regulars plus share of the (positive) total comes closest to 1. That value is the
+season's star line.
 
 A player is a star once the mean of his best 3 regular seasons is above the
 line (each season measured against its own line; seasons he doesn't have count
 as zero value), or straight away after a single season in the top 5% of regulars
 at his position on what repeats: each part weighted by its year-to-year
-correlation (own production ~0.8, on-ice relative xG ~0.25-0.4), so one lucky
+correlation (own production ~0.8, playmaking ~0.35-0.5, on-ice relative xG ~0.25-0.4), so one lucky
 on-ice season can't confirm a depth player. The season it happens is when the website confirms him at 100%.
 
 Writes training/data/xg_games/<season>/<game>.parquet (cache, not committed),
-training/xg_seasons.csv and training/stars.json.
+training/primary_assists.csv, training/xg_seasons.csv and training/stars.json.
 """
 
 import json
@@ -221,7 +225,26 @@ def totals():
     return fresh
 
 
-def seasons():
+ASSISTS = HERE / "primary_assists.csv"   # 5-on-5 primary assists by season and player, committed
+
+
+def primary_assists(seasons, refresh=()):
+    """5-on-5 primary assists and games per (season, player): the committed training/primary_assists.csv,
+    with any of ``seasons`` it lacks (and every season in ``refresh``) fetched from the NHL and saved back."""
+    old = pd.read_csv(ASSISTS) if ASSISTS.exists() else pd.DataFrame(columns=["season", "player_id", "games_played", "pa5"])
+    fetch = sorted((set(seasons) - set(old.season)) | set(refresh))
+    frames = [old[~old.season.isin(fetch)]]
+    for y in fetch:
+        df = ps.nhl.skater_stats(int(y), report="scoringRates")
+        if len(df):
+            frames.append(df[["player_id", "games_played", "primary_assists5v5"]].rename(
+                columns={"primary_assists5v5": "pa5"}).assign(season=int(y)))
+    out = pd.concat(frames, ignore_index=True).sort_values(["season", "player_id"])[["season", "player_id", "games_played", "pa5"]]
+    out.to_csv(ASSISTS, index=False)
+    return out
+
+
+def seasons(refresh=()):
     pt = totals()
     known = positions()
     missing = sorted(set(pt[~pt.player_id.isin(known)].season))   # seasons with players we can't place yet
@@ -248,12 +271,18 @@ def seasons():
     s = s.merge(avg_ixg.reset_index(), on=["season", "pos"], how="left")
     s["onice_value"] = s.rel60 * (s.toi5 / s.gp / 3600) * SEASON_GAMES
     s["own_value"] = (s.ixg_pg - s.avg_ixg_pg) * SEASON_GAMES
-    s["value"] = s.onice_value + s.own_value
+    pa = primary_assists(sorted(set(s.season)), refresh)
+    s = s.merge(pa, on=["season", "player_id"], how="left")
+    s["pa5_pg"] = (s.pa5 / s.games_played).fillna(0)
+    avg_pa = s[s.regular].groupby(["season", "pos"]).pa5_pg.mean().rename("avg_pa5_pg")
+    s = s.merge(avg_pa.reset_index(), on=["season", "pos"], how="left")
+    s["play_value"] = (s.pa5_pg - s.avg_pa5_pg) * SEASON_GAMES
+    s["value"] = s.onice_value + s.own_value + s.play_value
     s["cut"], s["pareto_share"] = np.inf, np.nan
-    for (y, p), grp in s[s.regular].groupby(["season", "pos"]):
+    for y, grp in s[s.regular].groupby("season"):   # forwards and defensemen in one pool
         n = pareto_cut(grp.value.to_numpy(), len(grp))
         cut = np.sort(grp.value.to_numpy())[::-1][n - 1] if n else np.inf
-        s.loc[(s.season == y) & (s.pos == p), ["cut", "pareto_share"]] = cut, n / len(grp)
+        s.loc[s.season == y, ["cut", "pareto_share"]] = cut, n / len(grp)
     s["star_season"] = s.regular & (s.value >= s.cut)
     # One season confirms a star only if it's top 5% on what repeats: each part weighted by its
     # year-to-year correlation among regulars (own production repeats ~0.8, on-ice relative xG only
@@ -262,9 +291,9 @@ def seasons():
     nxt = reg.assign(season=reg.season - 1)
     yy = reg.merge(nxt, on=["player_id", "season", "pos"], suffixes=("", "_next"))
     r = {(p, part): yy[yy.pos == p][part].corr(yy[yy.pos == p][part + "_next"])
-         for p in ("F", "D") for part in ("onice_value", "own_value")}
-    s["talent"] = [r[(p, "onice_value")] * a + r[(p, "own_value")] * b
-                   for p, a, b in zip(s.pos, s.onice_value, s.own_value)]
+         for p in ("F", "D") for part in ("onice_value", "own_value", "play_value")}
+    s["talent"] = [r[(p, "onice_value")] * a + r[(p, "own_value")] * b + r[(p, "play_value")] * c
+                   for p, a, b, c in zip(s.pos, s.onice_value, s.own_value, s.play_value)]
     line = s[s.regular].groupby(["season", "pos"]).talent.quantile(ELITE_PCT).rename("elite_line")
     s = s.merge(line.reset_index(), on=["season", "pos"], how="left")
     s["elite"] = s.regular & (s.talent >= s.elite_line)
@@ -288,7 +317,8 @@ def seasons():
     stars = pd.Series(confirmed, dtype=int)
     (HERE / "stars.json").write_text(json.dumps({
         "about": "Season (start year) each skater was confirmed a star by on-ice and individual xG "
-                 "(training/xg_star.py): his best 3 regular seasons average above that season's Pareto line, or "
+                 "and 5-on-5 primary assists (training/xg_star.py): his best 3 regular seasons average above that "
+                 "season's Pareto line (forwards and defensemen in one pool), or "
                  "one season in the top 5% of regulars at his position.",
         "stars": {str(int(k)): int(v) for k, v in stars.items()}}, indent=0), encoding="utf-8")
     share = s[s.regular].groupby(["pos"]).pareto_share.mean()
@@ -307,7 +337,7 @@ if __name__ == "__main__":
         today = pd.Timestamp.today()
         y = today.year if today.month >= 9 else today.year - 1
         collect(y, y, 2)
-        seasons()
+        seasons(refresh=[y])
     elif sys.argv[1] == "game":
         g = int(sys.argv[2])
         y = int(str(g)[:4])

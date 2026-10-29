@@ -5,9 +5,11 @@ Predicts NHL outcomes from 4 seasons after the draft year.
 
 Outputs two probabilities on a single bar (Iacobelli-style):
   - P(NHL player) : reaches 200 NHL games
-  - P(Star)       : a star season by on-ice xG: net xG above replacement at his
-                    usual 5-on-5 minutes over 84 games, in that season's Pareto
-                    group of NHL forwards
+  - P(Star)       : a star by expected goals: his best 3 NHL seasons average
+                    above that season's Pareto line on 5-on-5 on-ice xG against
+                    his teammates, his own xG and his 5-on-5 primary assists, per
+                    84 games (forwards and defensemen in one pool), or one season
+                    in the top 5% of forwards
 
 If the player has ALREADY reached 200 GP or the star threshold, that
 outcome is reported as 100%.
@@ -41,8 +43,8 @@ NHLER_SHAPE     = 'linear'   # COEF multiplies shape(pts/84): "linear", "log" (l
 NHLER_WJC       = {}
 NHLER_WJC_AGE   = {}
 
-STAR_INTERCEPT  = -9.470031
-STAR_COEF       =  1.498295
+STAR_INTERCEPT  = -9.799774
+STAR_COEF       =  1.569786
 STAR_SHAPE      = 'sqrt'
 STAR_WJC        = {}
 STAR_WJC_AGE    = {}

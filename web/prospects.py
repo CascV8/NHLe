@@ -30,9 +30,11 @@ from puckscrape import _http
 
 WEB = Path(__file__).resolve().parent
 OUT = WEB / "prospects.json"
+NATIONS = WEB / "prospect_nations.json"   # "client:player id" -> country, from HockeyTech profiles (kept)
 RANKINGS = "https://api-web.nhle.com/v1/draft/rankings/{year}/{category}"
 SKIP = {"ncaa", "sdhl", "auroraliiga"}          # NCAA: too slow for a monthly job; women's leagues
 KEYS = {"hockeyallsvenskan": "allsvenskan", "extraliga": "czechia", "maxa-liga": "czechia2"}
+FINNISH_JUNIOR = {"u18-sm-sarja", "u20-sm-sarja"}
 
 log = logging.getLogger("prospects")
 
@@ -95,10 +97,29 @@ def tables(seasons):
                         "code": code, "country": country, "season": y, "type": "reg" if phase == "regular" else "po",
                         "name": r.get("player"), "key": name_key(r.get("player")), "born": birth(r.get(bcol)) if bcol else None,
                         "pos": position(r.get("position")), "team": r.get("team") or "",
-                        "nation": r.get("birthcntry") or r.get("nationality") or "",
+                        "nation": r.get("birthcntry") or r.get("nationality") or "", "site_id": r.get("player_id"),
                         "gp": int(r.get("gp") or 0), "g": int(r.get("g") or 0), "a": int(r.get("a") or 0), "pts": int(r.get("pts") or 0)})
                 log.info("%s %d %s: %d", code, y, phase, len(df))
     return pd.DataFrame(rows)
+
+
+def hockeytech_nation(code, site_id, cache):
+    """A HockeyTech player's country from his profile (the stats tables leave it blank): his home
+    country, else his birth country. Looked up once and kept in web/prospect_nations.json."""
+    from puckscrape.leagues import LEAGUES, hockeytech
+    lg = LEAGUES.get(code)
+    if lg is None or lg.adapter is not hockeytech or site_id is None or site_id != site_id:
+        return ""
+    client = lg.opts["client"]
+    k = f"{client}:{int(site_id)}"
+    if k not in cache:
+        try:
+            info = hockeytech._kit(client, view="player", category="profile", player_id=int(site_id)).get("Player") or {}
+            cache[k] = info.get("homecntry") or info.get("birthcntry") or ""
+        except Exception as e:
+            log.info("profile %s: %s", k, str(e)[:60])
+            return ""
+    return cache[k]
 
 
 def central_scouting(year):
@@ -126,6 +147,7 @@ def build(today=None):
     t["born"] = [b if b else known.get((c, k)) for b, c, k in zip(t.born, t.country, t.key)]
     t = t.dropna(subset=["born"])
     players, lists = {}, {}
+    nations = json.loads(NATIONS.read_text(encoding="utf-8")) if NATIONS.exists() else {}
     for draft_year, label in classes.items():
         lo, hi = window(draft_year)
         c = t[(t.born >= lo) & (t.born <= hi)]
@@ -134,9 +156,16 @@ def build(today=None):
             pid = f"{key.replace(' ', '-')}-{born}"
             reg = g[(g.type == "reg") & (g.season == y)]
             main = (reg if len(reg) else g).sort_values("gp", ascending=False).iloc[0]
+            nation = next((n for n in g.nation if n), "")
+            for r in g.itertuples():           # still blank: a HockeyTech profile has it
+                if nation:
+                    break
+                nation = hockeytech_nation(r.code, r.site_id, nations)
+            if not nation and set(g.code) & FINNISH_JUNIOR:
+                nation = "Finland"   # Finland's junior leagues publish no nationality; nearly all their players are Finnish
             players[pid] = {
                 "id": pid, "name": main["name"], "birthDate": born, "position": g.pos.mode().iloc[0],
-                "team": main["team"], "league": KEYS.get(main["code"], main["code"]), "nation": main["nation"],
+                "team": main["team"], "league": KEYS.get(main["code"], main["code"]), "nation": nation,
                 "draft": None, "class": draft_year,
                 "stats": [{"season": int(r.season), "type": r.type, "league": KEYS.get(r.code, r.code), "team": r.team,
                            "gp": r.gp, "g": r.g, "a": r.a, "pts": r.pts} for r in g.itertuples() if r.gp > 0]}
@@ -157,6 +186,7 @@ def build(today=None):
                 ranks[list_name][pid] = r.get("finalRank") or r.get("midtermRank")
         lists[str(draft_year)] = {"label": label, "players": sorted(set(ids)), "rankings": ranks}
         log.info("%d class (%s): %d players, rankings: %s", draft_year, label, len(set(ids)), list(ranks) or "none yet")
+    NATIONS.write_text(json.dumps(dict(sorted(nations.items())), ensure_ascii=False), encoding="utf-8")
     out = {"generated": (today or dt.date.today()).isoformat(), "season": y, "classes": lists, "players": players}
     OUT.write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     return out

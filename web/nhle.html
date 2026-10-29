@@ -455,27 +455,55 @@ async function playerPhoto(p) {
   } catch (e) {}
 }
 
-// Make a studio photo's white background transparent: flood-fill near-white pixels inward from the top and side
-// edges (not the bottom, where a white shirt can touch the frame), then fade the light pixels along the cut.
-function cutout(img, tol = 38, soft = 70) {
+// Make a studio photo's backdrop transparent. The backdrop's colour is read off the top and side edges (white for
+// some leagues, light grey or a gradient for others); pixels close to it are flood-filled inward from those edges (not
+// the bottom, where a white shirt can touch the frame), stepping on through a gradient while each pixel stays close to
+// its neighbour. Then only the largest shape (the player) is kept, so a league logo in a corner goes too, and the light
+// pixels along the cut are faded.
+function cutout(img, tol = 34, step = 9, soft = 60) {
   const w = img.naturalWidth, h = img.naturalHeight;
   const canvas = Object.assign(document.createElement("canvas"), { width: w, height: h });
   const ctx = canvas.getContext("2d");
   ctx.drawImage(img, 0, 0);
   const data = ctx.getImageData(0, 0, w, h), px = data.data;
-  const dist = i => Math.max(255 - px[i], 255 - px[i + 1], 255 - px[i + 2]);   // distance from white
+  // The backdrop: the median colour of the top row and the upper half of the side columns
+  const border = [];
+  for (let x = 0; x < w; x++) border.push(x * 4);
+  for (let y = 0; y < h / 2; y++) border.push(y * w * 4, (y * w + w - 1) * 4);
+  const median = c => { const v = border.map(i => px[i + c]).sort((a, b) => a - b); return v[v.length >> 1]; };
+  const back = [median(0), median(1), median(2)];
+  const far = i => Math.max(Math.abs(px[i] - back[0]), Math.abs(px[i + 1] - back[1]), Math.abs(px[i + 2] - back[2]));
+  const near = (i, j) => Math.max(Math.abs(px[i] - px[j]), Math.abs(px[i + 1] - px[j + 1]), Math.abs(px[i + 2] - px[j + 2]));
   const bg = new Uint8Array(w * h), queue = [];
-  const seed = (x, y) => { const k = y * w + x; if (!bg[k] && dist(k * 4) <= tol) { bg[k] = 1; queue.push(k); } };
-  for (let x = 0; x < w; x++) seed(x, 0);
-  for (let y = 0; y < h; y++) { seed(0, y); seed(w - 1, y); }
+  const take = (k, from) => {
+    if (bg[k]) return;
+    const d = far(k * 4);
+    if (d <= tol || (from >= 0 && d <= tol * 2.5 && near(k * 4, from * 4) <= step)) { bg[k] = 1; queue.push(k); }
+  };
+  for (let x = 0; x < w; x++) take(x, -1);
+  for (let y = 0; y < h; y++) { take(y * w, -1); take(y * w + w - 1, -1); }
   while (queue.length) {
     const k = queue.pop(), x = k % w, y = (k - x) / w;
-    if (x > 0) seed(x - 1, y); if (x < w - 1) seed(x + 1, y); if (y > 0) seed(x, y - 1); if (y < h - 1) seed(x, y + 1);
+    if (x > 0) take(k - 1, k); if (x < w - 1) take(k + 1, k); if (y > 0) take(k - w, k); if (y < h - 1) take(k + w, k);
   }
+  // Keep the largest foreground shape; smaller islands (a corner logo, specks) become background
+  const comp = new Int32Array(w * h).fill(-1), sizes = [];
+  for (let k0 = 0; k0 < w * h; k0++) {
+    if (bg[k0] || comp[k0] >= 0) continue;
+    const id = sizes.length; let n = 0; const stack = [k0]; comp[k0] = id;
+    while (stack.length) {
+      const k = stack.pop(), x = k % w; n++;
+      for (const j of [x > 0 ? k - 1 : -1, x < w - 1 ? k + 1 : -1, k - w, k + w])
+        if (j >= 0 && j < w * h && !bg[j] && comp[j] < 0) { comp[j] = id; stack.push(j); }
+    }
+    sizes.push(n);
+  }
+  const keep = sizes.indexOf(Math.max(...sizes, 0));
+  for (let k = 0; k < w * h; k++) if (!bg[k] && comp[k] !== keep) bg[k] = 1;
   for (let k = 0; k < w * h; k++) {
     if (bg[k]) { px[k * 4 + 3] = 0; continue; }
     const x = k % w, edge = (x > 0 && bg[k - 1]) || (x < w - 1 && bg[k + 1]) || (k >= w && bg[k - w]) || (k < w * (h - 1) && bg[k + w]);
-    if (edge) px[k * 4 + 3] = Math.round(255 * Math.min(1, dist(k * 4) / soft));
+    if (edge) px[k * 4 + 3] = Math.round(255 * Math.min(1, far(k * 4) / soft));
   }
   ctx.putImageData(data, 0, 0);
   return canvas.toDataURL("image/png");
@@ -611,9 +639,22 @@ async function loadProspects() {
   PROSPECTS ??= await (await fetch("nhle-prospects.json")).json();
   return PROSPECTS;
 }
+// A future class is shown at a real draft's size (7 rounds x 32): the model's top 224 by star chance (NHLer
+// chance breaking ties), or everyone on the chosen Central Scouting list. Their cards are built locally first.
+const CLASS_SIZE = 224;
 function prospectRows(cls) {
   const list = $("draft-rank").value, ranks = cls.rankings[list] || {};
-  return cls.players.map(id => {
+  for (const id of cls.players) {
+    if (outcomes.has(id)) continue;
+    const pick = s => ({ star: s?.star ?? null, nhler: s?.nhler ?? null, label: s?.label ?? "" });
+    const c = buildCard(SPEC, PROSPECTS.players[id], CURRENT);
+    outcomes.set(id, { latest: pick(c.latest), byRel: Object.fromEntries(c.seasons.map(s => [s.rel, pick(s)])) });
+  }
+  const odds = id => outcomes.get(id).latest;
+  const ids = list ? cls.players.filter(id => ranks[id] != null)
+    : [...cls.players].sort((a, b) => (odds(b).star ?? -1) - (odds(a).star ?? -1) || (odds(b).nhler ?? -1) - (odds(a).nhler ?? -1))
+        .slice(0, CLASS_SIZE);
+  return ids.map(id => {
     const p = PROSPECTS.players[id];
     return { src: "pr", id, name: p.name, pos: p.position ?? "", team: "", club: p.team, league: String(p.league || "").toUpperCase(),
       nation: p.nation, overall: ranks[id] ?? null, round: null };

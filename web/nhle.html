@@ -228,6 +228,17 @@ const LEAGUES = [["ohl", "OHL"], ["whl", "WHL"], ["qmjhl", "QMJHL"], ["ushl", "U
   ["j20-nationell", "J20 Nationell"], ["u20-sm-sarja", "U20 SM-sarja"], ["czechia-u20", "Czechia U20"],
   ["u20-elit", "U20-Elit"], ["dnl", "DNL"]];
 
+// What each rated league is called on the page: the NHL's data names many by country ("Russia" for the
+// KHL, "Russia-Jr." for the MHL, "Sweden", "Swiss"...), so a label is shown by its league, not as sent.
+const LEAGUE_NAMES = { nhl: "NHL", ahl: "AHL", echl: "ECHL", ohl: "OHL", whl: "WHL", qmjhl: "QMJHL", ushl: "USHL", nahl: "NAHL",
+  ncaa: "NCAA", ntdp: "NTDP", bchl: "BCHL", ajhl: "AJHL", sjhl: "SJHL", mjhl: "MJHL", ojhl: "OJHL", cchl: "CCHL",
+  mjahl: "MJAHL", kijhl: "KIJHL", gohl: "GOJHL", csshl: "CSSHL", shl: "SHL", allsvenskan: "HockeyAllsvenskan",
+  hockeyettan: "HockeyEttan", "u20-nationell": "J20 Nationell", "u18-nationell": "J18 Nationell", liiga: "Liiga",
+  mestis: "Mestis", "u20-sm-sarja": "U20 SM-sarja", "u18-sm-sarja": "U18 SM-sarja", khl: "KHL", vhl: "VHL", mhl: "MHL",
+  czechia: "Czech Extraliga", czechia2: "Czech Chance Liga", "czechia-u20": "Czech U20", nl: "Swiss NL", sl: "Swiss League",
+  del: "DEL", del2: "DEL2", icehl: "ICEHL", slovakia: "Slovak Extraliga", "wjc-20": "WJC-20", "wjc-18": "WJC-18" };
+const leagueName = raw => LEAGUE_NAMES[leagueKey(SPEC, raw)] || raw;
+
 // ── Search ─────────────────────────────────────────────────────────────────────────────────────
 let found = [], sel = -1, timer, seq = 0;
 function showResults(list) {
@@ -297,8 +308,8 @@ function leagueTag(s, x) {
   const r = mainLeague(s);
   if (!r) return "";
   const logo = SPEC.logos?.[r.key];
-  return logo ? `<span class="lg logo" style="left:${x}%" title="${esc(r.league)}"><img src="${esc(logo.src)}"${logo.invert ? ` class="inv"` : ""} alt="${esc(r.league)}" loading="lazy"></span>`
-    : `<span class="lg" style="left:${x}%">${esc(r.league)}</span>`;
+  return logo ? `<span class="lg logo" style="left:${x}%" title="${esc(leagueName(r.league))}"><img src="${esc(logo.src)}"${logo.invert ? ` class="inv"` : ""} alt="${esc(leagueName(r.league))}" loading="lazy"></span>`
+    : `<span class="lg" style="left:${x}%">${esc(leagueName(r.league))}</span>`;
 }
 
 function renderCard(p, c) {
@@ -340,7 +351,7 @@ function renderCard(p, c) {
 
   const detail = c.seasons.flatMap(s => s.rows.length ? s.rows.map((r, j) => `<tr class="${j === 0 ? "sep" : ""}">
       <td class="l">${j === 0 ? `<b>${s.label}</b> <span class="dim">${seasonName(s.year)}</span>` : ""}</td>
-      <td class="l${r.used ? "" : " off"}">${esc(r.league)}${r.type === "po" ? " <span class='dim'>playoffs</span>" : ""}</td>
+      <td class="l${r.used ? "" : " off"}">${esc(leagueName(r.league))}${r.type === "po" ? " <span class='dim'>playoffs</span>" : ""}</td>
       <td class="l${r.used ? "" : " off"}">${esc(r.team)}</td>
       <td>${r.gp}</td><td>${r.pts}</td>
       <td class="${r.used ? "" : "off"}">${r.used ? r.factor.toFixed(3) : r.why || "no games"}</td>
@@ -627,7 +638,7 @@ function renderDraft() {
       : o.nhler == null ? '<td class="pct">–</td><td class="pct">–</td><td class="l dim" title="No rated season">–</td>'
       : pctCell(o.star, "--star") + pctCell(o.nhler, "--nhler") + `<td class="l dim">${esc(o.label)}</td>`;
     return divider + row([[p.overall ?? ""], [pickBtn(p), 1], [esc(p.pos), 1], [teamLogo(p.team), 1],
-      [`${esc(p.club)} <span class="dim">${esc(p.league)}</span>`, 1], [flag(p.nation), 1]]).replace("</tr>", outcome + "</tr>");
+      [`${esc(p.club)} <span class="dim">${esc(leagueName(p.league))}</span>`, 1], [flag(p.nation), 1]]).replace("</tr>", outcome + "</tr>");
   }).join("") || `<tr><td class="l msg">No picks for that year.</td></tr>`;
 }
 

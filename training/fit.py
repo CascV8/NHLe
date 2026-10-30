@@ -29,12 +29,11 @@ WJC:      The World Juniors are not pooled into pts/84, where 7 games would be
           ridge (WJC_RIDGE) keeps small terms near zero.
 Outcomes: NHL player = 200+ NHL regular-season games (through the latest season).
           Star = NHL player whose best 3 regular seasons (40+ games) average above
-          that season's Pareto line (the split in "What's a point worth?") on
+          that season's star line, the top 10% of regulars at his position, on
           expected goals (training/xg_star.py, scored with the xG model): his
-          5-on-5 on-ice net xG against his teammates', his own xG and his 5-on-5
-          primary assists, per 84 games, forwards and defensemen in one pool; or
-          one season in the top 5% at his position. training/stars.json lists
-          them and when.
+          5-on-5 on-ice net xG against his teammates' (half weight for forwards),
+          his own xG and his 5-on-5 primary assists, per 84 games; or one season
+          10+ above the line. training/stars.json lists them and when.
 Model:    log-odds = INTERCEPT + COEF * shape(pts84) + sum over WJCs (PLAYED + PER_PTS84 * wjc84),
           shape = pts84, log(1 + pts84) or sqrt(pts84), picked per model and
           outcome by cross-validated log loss (a straight line in raw pts84
@@ -179,7 +178,7 @@ def xg_stars():
     the player-seasons, and the Pareto group's share of skaters per position."""
     stars = {int(k): v for k, v in json.loads((HERE / "stars.json").read_text(encoding="utf-8"))["stars"].items()}
     seasons = pd.read_csv(HERE / "xg_seasons.csv")
-    share = seasons.groupby("pos").pareto_share.mean().round(3).to_dict()
+    share = seasons.groupby("pos").star_share.mean().round(3).to_dict()
     return stars, seasons, share
 
 
@@ -439,7 +438,7 @@ def main():
     if write:
         for res in results:
             write_script(res, factors, examples[res["pos"]], po_weight[res["pos"]])
-    print("Pareto star group, share of skaters:", star_share, "| stars among picks:", int(draft.star.sum()))
+    print("Star line, share of regulars:", star_share, "| stars among picks:", int(draft.star.sum()))
 
 
 def po_sweep(draft, stints, cover, factors):
@@ -613,10 +612,10 @@ def write_report(out, draft):
         f"({(draft.pos == 'F').sum()} forwards, {(draft.pos == 'D').sum()} defensemen). "
         f"League factors: network NHLe, {len(out['factors'])} leagues ([NETWORK.md](NETWORK.md)).",
         f"NHL player = 200+ NHL games. Star = NHL player whose best 3 regular seasons (40+ games) average above "
-        "that season's Pareto line on expected goals ([xg_star.py](xg_star.py), scored with the xG model): 5-on-5 "
-        "on-ice net xG against his teammates', his own xG and his 5-on-5 primary assists, per 84 games, forwards and "
-        f"defensemen in one pool (on average the top {t['F']:.0%} of forwards and {t['D']:.0%} of defensemen), or "
-        "one season in the top 5% at his position.",
+        f"that season's star line, the top {t['F']:.0%} of regulars at his position, on expected goals "
+        "([xg_star.py](xg_star.py), scored with the xG model): 5-on-5 on-ice net xG against his teammates' (half "
+        "weight for forwards), his own xG and his 5-on-5 primary assists, per 84 games; or one season 10+ above "
+        "the line.",
         f"Star examples near the line — F: {', '.join(out['star_examples']['F'])}; "
         f"D: {', '.join(out['star_examples']['D'])}.",
         "",

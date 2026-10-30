@@ -6,10 +6,10 @@ Predicts NHL outcomes from 1 season after the draft year.
 Outputs two probabilities on a single bar (Iacobelli-style):
   - P(NHL player) : reaches 200 NHL games
   - P(Star)       : a star by expected goals: his best 3 NHL seasons average
-                    above that season's Pareto line on 5-on-5 on-ice xG against
-                    his teammates, his own xG and his 5-on-5 primary assists, per
-                    84 games (forwards and defensemen in one pool), or one season
-                    in the top 5% of forwards
+                    above that season's star line (the top 10% of NHL
+                    forwards) on 5-on-5 on-ice xG against his teammates,
+                    his own xG and his 5-on-5 primary assists, per 84 games, or
+                    one season 10+ above it
 
 The World Juniors (WJC-20) are their own fitted term, not pooled into
 pts/84: making the team and scoring there move the odds on top of the
@@ -44,11 +44,11 @@ NHLER_SHAPE     = 'linear'   # COEF multiplies shape(pts/84): "linear", "log" (l
 NHLER_WJC       = {"wjc-20": (0.658190, 0.004844)}
 NHLER_WJC_AGE   = {"wjc-20": (-0.188814, 0.003166)}
 
-STAR_INTERCEPT  = -9.755042
-STAR_COEF       =  2.897478
+STAR_INTERCEPT  = -11.016306
+STAR_COEF       =  3.002240
 STAR_SHAPE      = 'log'
-STAR_WJC        = {"wjc-20": (0.074944, 0.034066)}
-STAR_WJC_AGE    = {"wjc-20": (-0.536622, 0.027235)}
+STAR_WJC        = {"wjc-20": (-0.027531, 0.027530)}
+STAR_WJC_AGE    = {"wjc-20": (-0.767400, 0.029845)}
 
 WJC_AGE_CENTER  = 19.0
 WJC_AGE_TYPICAL = 18.9   # median age at the WJC-20 for this season, the default

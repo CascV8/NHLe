@@ -47,11 +47,11 @@ NHLER_SHAPE     = 'sqrt'   # COEF multiplies shape(pts/84): "linear", "log" (log
 NHLER_WJC       = {"wjc-20": (0.723127, 0.032912)}
 NHLER_WJC_AGE   = {"wjc-20": (-0.168248, 0.013657)}
 
-STAR_INTERCEPT  = -9.139184
-STAR_COEF       =  2.725230
+STAR_INTERCEPT  = -8.863819
+STAR_COEF       =  2.643854
 STAR_SHAPE      = 'log'
-STAR_WJC        = {"wjc-20": (0.280660, 0.055217)}
-STAR_WJC_AGE    = {"wjc-20": (-0.509685, 0.023486)}
+STAR_WJC        = {"wjc-20": (0.172774, 0.063886)}
+STAR_WJC_AGE    = {"wjc-20": (-0.514208, 0.017488)}
 
 WJC_AGE_CENTER  = 19.0
 WJC_AGE_TYPICAL = 19.7   # median age at the WJC-20 for this season, the default

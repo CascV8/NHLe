@@ -43,8 +43,8 @@ NHLER_SHAPE     = 'sqrt'   # COEF multiplies shape(pts/84): "linear", "log" (log
 NHLER_WJC       = {}
 NHLER_WJC_AGE   = {}
 
-STAR_INTERCEPT  = -14.025988
-STAR_COEF       =  3.976419
+STAR_INTERCEPT  = -13.844047
+STAR_COEF       =  3.937407
 STAR_SHAPE      = 'log'
 STAR_WJC        = {}
 STAR_WJC_AGE    = {}

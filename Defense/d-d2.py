@@ -42,17 +42,17 @@ import sys
 # For the WJC-20, PLAYED and PER_PTS84 each also move by *_WJC_AGE per year of
 # age at the tournament (Jan 1) away from WJC_AGE_CENTER: making an under-20
 # team at 17 says more than making it at 19.
-NHLER_INTERCEPT = -5.046742
-NHLER_COEF      =  1.271548
+NHLER_INTERCEPT = -5.046171
+NHLER_COEF      =  1.271524
 NHLER_SHAPE     = 'sqrt'   # COEF multiplies shape(pts/84): "linear", "log" (log(1+x)) or "sqrt"
-NHLER_WJC       = {"wjc-20": (0.723127, 0.032912)}
-NHLER_WJC_AGE   = {"wjc-20": (-0.168248, 0.013657)}
+NHLER_WJC       = {"wjc-20": (0.719427, 0.033111)}
+NHLER_WJC_AGE   = {"wjc-20": (-0.166568, 0.013505)}
 
-STAR_INTERCEPT  = -9.773267
+STAR_INTERCEPT  = -9.773304
 STAR_COEF       =  2.758495
 STAR_SHAPE      = 'log'
-STAR_WJC        = {"wjc-20": (0.003626, 0.067206)}
-STAR_WJC_AGE    = {"wjc-20": (-0.988249, 0.046929)}
+STAR_WJC        = {"wjc-20": (0.004735, 0.067196)}
+STAR_WJC_AGE    = {"wjc-20": (-0.989739, 0.046940)}
 
 WJC_AGE_CENTER  = 19.0
 WJC_AGE_TYPICAL = 19.7   # median age at the WJC-20 for this season, the default
@@ -69,7 +69,6 @@ LEAGUE_FACTORS = {
     "ahl":           0.384612,
     "vhl":           0.240959,
     "wjc-20":        0.240798,
-    "icehl":         0.229524,
     "allsvenskan":   0.227984,
     "slovakia":      0.220816,
     "ncaa":          0.210347,
@@ -77,7 +76,7 @@ LEAGUE_FACTORS = {
     "mestis":        0.142682,
     "echl":          0.135897,
     "del2":          0.127676,
-    "ushl":          0.125773,
+    "ushl":          0.125908,
     "ohl":           0.124959,
     "sl":            0.123086,
     "whl":           0.121465,
@@ -91,6 +90,8 @@ LEAGUE_FACTORS = {
     "u20-nationell": 0.073953,
     "czechia-u20":   0.057781,
     "nahl":          0.053967,
+    "umhsehl":       0.050530,
+    "suomi-sarja":   0.049591,
     "ajhl":          0.048531,
     "cchl":          0.047586,
     "ojhl":          0.042370,
@@ -99,6 +100,7 @@ LEAGUE_FACTORS = {
     "mjahl":         0.031891,
     "mjhl":          0.030916,
     "gohl":          0.028614,
+    "ushs-mn":       0.027588,
     "u18-nationell": 0.027171,
     "csshl":         0.023165,
     "kijhl":         0.014033,

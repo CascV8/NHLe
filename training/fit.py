@@ -141,6 +141,9 @@ LEAGUE_ALIASES = {
     "Czech U20": "czechia-u20", "Czech U18": "czechia-u18", "Fin-U18": "u18-sm-sarja",
     "Swe-U18": "u18-nationell", "Swiss-Jr.": "swiss-u20", "OPJHL": "ojhl", "QAAA": "qc-u18-aaa",
     "CHL": "central-hl", "CzRep-3": "czechia3", "Swiss-2": "sl",
+    # US high school: Minnesota's state high school league, the Upper Midwest elite league it feeds in the
+    # fall, and the prep schools (USHS-Prep), each linked to the USHL by players in both the same season
+    "USHS-MN": "ushs-mn", "UMHSEHL": "umhsehl", "USHS-Prep": "ushs-prep",
     "NTDP": "ntdp", "U-18": "ntdp", "U-17": "ntdp",   # the USNTDP's schedule outside the USHL (college, international...)
     "WJC-20": "wjc-20", "WJC-A": "wjc-20",
     "WJC-18": "wjc-18", "WJ18-A": "wjc-18",

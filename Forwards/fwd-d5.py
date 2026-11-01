@@ -38,14 +38,14 @@ import sys
 # For the WJC-20, PLAYED and PER_PTS84 each also move by *_WJC_AGE per year of
 # age at the tournament (Jan 1) away from WJC_AGE_CENTER: making an under-20
 # team at 17 says more than making it at 19.
-NHLER_INTERCEPT = -3.034437
-NHLER_COEF      =  0.110545
+NHLER_INTERCEPT = -3.030978
+NHLER_COEF      =  0.110519
 NHLER_SHAPE     = 'linear'   # COEF multiplies shape(pts/84): "linear", "log" (log(1+x)) or "sqrt"
 NHLER_WJC       = {}
 NHLER_WJC_AGE   = {}
 
-STAR_INTERCEPT  = -11.521882
-STAR_COEF       =  1.512612
+STAR_INTERCEPT  = -11.517682
+STAR_COEF       =  1.512050
 STAR_SHAPE      = 'sqrt'
 STAR_WJC        = {}
 STAR_WJC_AGE    = {}
@@ -64,7 +64,6 @@ LEAGUE_FACTORS = {
     "liiga":         0.416034,
     "ahl":           0.384612,
     "vhl":           0.240959,
-    "icehl":         0.229524,
     "allsvenskan":   0.227984,
     "slovakia":      0.220816,
     "ncaa":          0.210347,
@@ -72,7 +71,7 @@ LEAGUE_FACTORS = {
     "mestis":        0.142682,
     "echl":          0.135897,
     "del2":          0.127676,
-    "ushl":          0.125773,
+    "ushl":          0.125908,
     "ohl":           0.124959,
     "sl":            0.123086,
     "whl":           0.121465,
@@ -85,6 +84,8 @@ LEAGUE_FACTORS = {
     "u20-nationell": 0.073953,
     "czechia-u20":   0.057781,
     "nahl":          0.053967,
+    "umhsehl":       0.050530,
+    "suomi-sarja":   0.049591,
     "ajhl":          0.048531,
     "cchl":          0.047586,
     "ojhl":          0.042370,
@@ -93,6 +94,7 @@ LEAGUE_FACTORS = {
     "mjahl":         0.031891,
     "mjhl":          0.030916,
     "gohl":          0.028614,
+    "ushs-mn":       0.027588,
     "u18-nationell": 0.027171,
     "csshl":         0.023165,
     "kijhl":         0.014033,
@@ -141,7 +143,7 @@ def wjc_log_odds(terms, age_terms, wjc, age=None):
 
 # pts/84 above this (the top 0.5% of the training sample) counts as this: the model
 # doesn't extrapolate past the seasons it learned from.
-PTS84_CAP = 92.375
+PTS84_CAP = 92.378
 
 
 def shape(pts84, kind):

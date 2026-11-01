@@ -11,6 +11,7 @@
 // (tournaments and short events aside).
 
 export const SEASONS = [-1, 0, 1, 2, 3, 4, 5];
+export const LIVE_MIN_GP = 20;   // games before a season under way is a card's latest
 export const label = rel => rel === 0 ? "DY" : rel < 0 ? `D${rel}` : `D+${rel}`;
 const sigmoid = x => 1 / (1 + Math.exp(-x));
 
@@ -100,7 +101,7 @@ export function buildCard(spec, player, current) {
     const used = rows.filter(r => r.used && !tournaments.has(r.key));
     const gp = used.reduce((t, r) => t + r.gp, 0);
     const regGp = used.filter(r => r.type === "reg").reduce((t, r) => t + r.gp, 0);
-    const out = { rel, label: label(rel), year, rows, gp, played: gp > 0, future: year > current, inProgress: year === current };
+    const out = { rel, label: label(rel), year, rows, gp, regGp, played: gp > 0, future: year > current, inProgress: year === current };
     if (!out.played) return out;
     const poWeight = typeof spec.po_weight === "object" ? spec.po_weight[group] : spec.po_weight ?? 1;
     const w = r => r.type === "po" ? poWeight : 1;
@@ -135,6 +136,9 @@ export function buildCard(spec, player, current) {
     if (starFrom != null && year >= starFrom) { out.star = 1; out.nhler = 1; out.starKnown = true; }
     return out;
   });
-  const latest = [...seasons].reverse().find(s => s.nhler != null);
+  // The latest rated season, but not a season under way until it has LIVE_MIN_GP games: a dozen games
+  // shouldn't overrule a full draft year (a teenager scoreless in his first NHL games reads as a bust).
+  const rated = [...seasons].reverse().filter(s => s.nhler != null);
+  const latest = rated.find(s => !s.inProgress || s.regGp >= LIVE_MIN_GP) ?? rated[0];
   return { group, draftYear, drafted: !!player.draft?.year, seasons, latest };
 }

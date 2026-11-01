@@ -33,7 +33,8 @@ Outcomes: NHL player = 200+ NHL regular-season games (through the latest season)
           expected goals (training/xg_star.py, scored with the xG model): his
           5-on-5 on-ice net xG against his teammates' (half weight for forwards),
           his own xG and his 5-on-5 primary assists, per 84 games; or one season
-          10+ above the line. training/stars.json lists them and when.
+          10+ above the line, or a rookie season above it before he's 21.
+          training/stars.json lists them and when.
 Model:    log-odds = INTERCEPT + COEF * shape(pts84) + sum over WJCs (PLAYED + PER_PTS84 * wjc84),
           shape = pts84, log(1 + pts84) or sqrt(pts84), picked per model and
           outcome by cross-validated log loss (a straight line in raw pts84
@@ -615,7 +616,7 @@ def write_report(out, draft):
         f"that season's star line, the top {t['F']:.0%} of regulars at his position, on expected goals "
         "([xg_star.py](xg_star.py), scored with the xG model): 5-on-5 on-ice net xG against his teammates' (half "
         "weight for forwards), his own xG and his 5-on-5 primary assists, per 84 games; or one season 10+ above "
-        "the line.",
+        "the line, or a rookie season above it before he's 21.",
         f"Star examples near the line — F: {', '.join(out['star_examples']['F'])}; "
         f"D: {', '.join(out['star_examples']['D'])}.",
         "",

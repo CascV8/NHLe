@@ -9,7 +9,8 @@ Outputs two probabilities on a single bar (Iacobelli-style):
                     above that season's star line (the top 10% of NHL
                     defensemen) on 5-on-5 on-ice xG against his teammates,
                     his own xG and his 5-on-5 primary assists, per 84 games, or
-                    one season 10+ above it
+                    one season 10+ above it, or a rookie season above it
+                    before he's 21
 
 If the player has ALREADY reached 200 GP or the star threshold, that
 outcome is reported as 100%.

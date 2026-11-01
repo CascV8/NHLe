@@ -31,11 +31,15 @@ than a star).
 
 A player is a star once the mean of his best 3 regular seasons is above the
 line (each season measured against its own line; seasons he doesn't have count
-as zero value), or straight away after one season 10+ above it. The season it
-happens is when the website confirms him at 100%.
+as zero value), or straight away after one season 10+ above it, or after a
+rookie season (by the NHL's Calder rule) above it before he's 21 on September 15:
+every such rookie since 2010-11 became a star (Hall, Ekblad, Hischier, Tkachuk,
+Quinn Hughes, Hutson, Celebrini...), while those who crossed it at 21 or older
+often didn't (Vatanen, Parayko, Butcher, Bunting). The season it happens is when
+the website confirms him at 100%.
 
 Writes training/data/xg_games/<season>/<game>.parquet (cache, not committed),
-training/primary_assists.csv, training/xg_seasons.csv and training/stars.json.
+training/primary_assists.csv, training/rookies.csv, training/xg_seasons.csv and training/stars.json.
 """
 
 import json
@@ -56,6 +60,7 @@ STAR_PCT = 0.10       # the star line: the top 10% of regulars at his position e
 BEST_N = 3            # a star's best 3 seasons average above the line...
 PEAK = 10.0           # ...or one season this far above it confirms him at once
 FORWARD_ONICE = 0.5   # weight on a forward's on-ice term (defensemen 1)
+YOUNG_ROOKIE = 21     # ...or a rookie season above the line before this age (on September 15)
 MIN_SEASON_GAMES = 41 # a season under way counts once teams are halfway through (no 15-game hot starts)
 log = logging.getLogger("xg_star")
 
@@ -244,6 +249,27 @@ def primary_assists(seasons, refresh=()):
     return out
 
 
+ROOKIES = HERE / "rookies.csv"   # each season's rookies (the NHL's Calder rule) and birth dates, committed
+ROOKIE_API = "https://api.nhle.com/stats/rest/en/skater/bios"
+
+
+def rookies(seasons, refresh=()):
+    """Each season's rookies by the NHL's own rule (its stats API's isRookie: no more than 25 games in any
+    earlier season, nor 6+ in each of two, and not 26 by September 15) with birth dates: the committed
+    training/rookies.csv, with any of ``seasons`` it lacks (and every season in ``refresh``) fetched."""
+    from puckscrape import _http
+    old = pd.read_csv(ROOKIES) if ROOKIES.exists() else pd.DataFrame(columns=["season", "player_id", "birth_date"])
+    fetch = sorted((set(seasons) - set(old.season)) | set(refresh))
+    frames = [old[~old.season.isin(fetch)]]
+    for y in fetch:
+        d = _http.get_json(ROOKIE_API, params={"limit": -1, "cayenneExp": f"seasonId={y}{y + 1} and gameTypeId=2 and isRookie='1'"})
+        frames.append(pd.DataFrame([{"season": int(y), "player_id": int(r["playerId"]), "birth_date": r.get("birthDate")}
+                                    for r in d.get("data", [])], columns=["season", "player_id", "birth_date"]))
+    out = pd.concat(frames, ignore_index=True).sort_values(["season", "player_id"])
+    out.to_csv(ROOKIES, index=False)
+    return out
+
+
 def seasons(refresh=()):
     pt = totals()
     known = positions()
@@ -286,6 +312,9 @@ def seasons(refresh=()):
     s["star_season"] = s.regular & (s.value >= s.cut)
     # Each regular season against its own line; a season he doesn't have counts as zero value
     s["above"] = np.where(s.regular, s.value - s.cut, np.nan)
+    rk = rookies(sorted(set(s.season)), refresh).dropna(subset=["birth_date"])
+    young = {(int(y), int(p)) for y, p, b in zip(rk.season, rk.player_id, rk.birth_date)
+             if str(b) > f"{int(y) - YOUNG_ROOKIE}-09-15"}   # not yet 21 on September 15 of his rookie season
     s = s.sort_values(["player_id", "season"])
     confirmed = {}
     for pid, grp in s.groupby("player_id"):
@@ -295,7 +324,8 @@ def seasons(refresh=()):
                 seen.append(above)
             best = sorted(seen, reverse=True)[:BEST_N]
             best += [-c for c in [cut] * (BEST_N - len(best))] if np.isfinite(cut) else []
-            if (reg and above >= PEAK) or (len(best) == BEST_N and np.mean(best) >= 0):
+            if (reg and (above >= PEAK or (above >= 0 and (int(season), int(pid)) in young))) \
+                    or (len(best) == BEST_N and np.mean(best) >= 0):
                 confirmed[pid] = int(season)
                 break
     s = s.drop(columns="toi5").round(4)
@@ -304,7 +334,8 @@ def seasons(refresh=()):
     (HERE / "stars.json").write_text(json.dumps({
         "about": "Season (start year) each skater was confirmed a star by on-ice and individual xG "
                  "and 5-on-5 primary assists (training/xg_star.py): his best 3 regular seasons average above that "
-                 "season's star line (the top 10% of regulars at his position), or one season 10+ above it.",
+                 "season's star line (the top 10% of regulars at his position), or one season 10+ above it, or "
+                 "a rookie season above it before he's 21.",
         "stars": {str(int(k)): int(v) for k, v in stars.items()}}, indent=0), encoding="utf-8")
     share = s[s.regular].groupby(["pos"]).star_share.mean()
     print(f"{len(s)} player-seasons {s.season.min()}-{s.season.max()}; star line ~top {share['F']:.0%} of F, "

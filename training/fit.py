@@ -68,7 +68,10 @@ WJC_AGE_CENTER = 19.0          # WJC-20 terms are a line in age at the tournamen
 PO_WEIGHT = {"F": 1.5, "D": 1.25}
 PO_SWEEP = [1.0, 1.25, 1.5, 2.0, 2.5, 3.0]
 SHAPES = ("linear", "log", "sqrt")
-X_CAP_PCT = 99.5               # pts84 above this percentile of a model's sample is held at it
+# pts84 above this percentile of a model's sample is held at it. Defensemen at their top observed season:
+# at 99.5% the line fell inside the elite (D+2 43.6 pts/84, where 4 of the 5 above became stars and the
+# curve said 67%); forwards' 99.5% line is already high, and their fit is a touch better with it.
+X_CAP_PCT = {"F": 99.5, "D": 100.0}
 MAX_LOG_SE = 0.25              # leagues whose factor is less certain than ~±28% stay out of the scripts
 
 # Scripts per (position, season relative to draft year) and the tournaments
@@ -273,7 +276,7 @@ def model_sample(d, stints, cover, rel, tourn, factors, po_weight=1.0):
     # No extrapolating past the data: a season above the top X_CAP_PCT of this model's sample counts as
     # if it were at that line (a handful of players can't carry a curve to 96%).
     sample["x_raw"] = sample.x
-    sample["x_cap"] = float(np.percentile(sample.x, X_CAP_PCT))
+    sample["x_cap"] = float(np.percentile(sample.x, X_CAP_PCT["D" if (d.pos == "D").all() else "F"]))
     sample["x"] = sample.x.clip(upper=sample.x_cap.iloc[0])
     # Age on January 1 of the season, i.e. at the World Juniors
     born = pd.to_datetime(sample.birthDate, errors="coerce")

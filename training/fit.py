@@ -68,10 +68,10 @@ WJC_AGE_CENTER = 19.0          # WJC-20 terms are a line in age at the tournamen
 PO_WEIGHT = {"F": 1.5, "D": 1.25}
 PO_SWEEP = [1.0, 1.25, 1.5, 2.0, 2.5, 3.0]
 SHAPES = ("linear", "log", "sqrt")
-# pts84 above this percentile of a model's sample is held at it. Defensemen at their top observed season:
-# at 99.5% the line fell inside the elite (D+2 43.6 pts/84, where 4 of the 5 above became stars and the
-# curve said 67%); forwards' 99.5% line is already high, and their fit is a touch better with it.
-X_CAP_PCT = {"F": 99.5, "D": 100.0}
+# pts84 above this percentile of a model's sample is held at it: the top observed season, so a model never
+# extrapolates past its data. At 99.5% the line fell inside the elite (D+2 defense 43.6 pts/84, where 4 of
+# the 5 above became stars and the curve said 67%; a 106-point rookie forward at D+1 read 76%).
+X_CAP_PCT = {"F": 100.0, "D": 100.0}
 MAX_LOG_SE = 0.25              # leagues whose factor is less certain than ~±28% stay out of the scripts
 
 # Scripts per (position, season relative to draft year) and the tournaments

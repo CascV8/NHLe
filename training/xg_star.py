@@ -38,8 +38,15 @@ Quinn Hughes, Hutson, Celebrini...), while those who crossed it at 21 or older
 often didn't (Vatanen, Parayko, Butcher, Bunting). The season it happens is when
 the website confirms him at 100%.
 
+Before 2010-11 there are no shift charts, so no xG: a regular season (40+ games)
+then counts as a star season at 100+ NHL points per 84 games for a forward or 75+
+for a defenseman. Since 2010-11, 95% of the forwards and 94% of the defensemen at
+those rates became stars by xG. It dates Crosby, Ovechkin and Malkin from their
+early seasons rather than 2010-11.
+
 Writes training/data/xg_games/<season>/<game>.parquet (cache, not committed),
-training/primary_assists.csv, training/rookies.csv, training/xg_seasons.csv and training/stars.json.
+training/primary_assists.csv, training/rookies.csv, training/pre_xg_seasons.csv, training/xg_seasons.csv
+and training/stars.json.
 """
 
 import json
@@ -61,6 +68,8 @@ BEST_N = 3            # a star's best 3 seasons average above the line...
 PEAK = 10.0           # ...or one season this far above it confirms him at once
 FORWARD_ONICE = 0.5   # weight on a forward's on-ice term (defensemen 1)
 YOUNG_ROOKIE = 21     # ...or a rookie season above the line before this age (on September 15)
+PRE_XG = range(2000, 2010)          # seasons before the shift charts: confirmed by scoring instead
+PRE_XG_PTS84 = {"F": 100, "D": 75}  # NHL points per 84 games, 40+ games
 MIN_SEASON_GAMES = 41 # a season under way counts once teams are halfway through (no 15-game hot starts)
 log = logging.getLogger("xg_star")
 
@@ -270,6 +279,24 @@ def rookies(seasons, refresh=()):
     return out
 
 
+PRE_XG_FILE = HERE / "pre_xg_seasons.csv"   # NHL regular seasons 2000-01 to 2009-10, committed
+
+
+def pre_xg_seasons():
+    """Every skater's NHL regular season before 2010-11: games, points and position (the NHL's summary
+    report), fetched once and kept in training/pre_xg_seasons.csv."""
+    if PRE_XG_FILE.exists():
+        return pd.read_csv(PRE_XG_FILE)
+    frames = []
+    for y in PRE_XG:
+        df = ps.nhl.skater_stats(int(y))
+        if len(df):   # 2004-05 was the lockout
+            frames.append(df[["player_id", "position_code", "games_played", "points"]].assign(season=int(y)))
+    out = pd.concat(frames, ignore_index=True)[["season", "player_id", "position_code", "games_played", "points"]]
+    out.to_csv(PRE_XG_FILE, index=False)
+    return out
+
+
 def seasons(refresh=()):
     pt = totals()
     known = positions()
@@ -328,6 +355,13 @@ def seasons(refresh=()):
                     or (len(best) == BEST_N and np.mean(best) >= 0):
                 confirmed[pid] = int(season)
                 break
+    # Before the shift charts: a season at the scoring rate that nearly always means a star confirms one
+    pre = pre_xg_seasons()
+    pre = pre[pre.games_played >= 40]
+    rate = pre.points / pre.games_played * SEASON_GAMES
+    line = np.where(pre.position_code == "D", PRE_XG_PTS84["D"], PRE_XG_PTS84["F"])
+    for pid, y in pre[rate >= line].groupby("player_id").season.min().items():
+        confirmed[int(pid)] = min(confirmed.get(int(pid), int(y)), int(y))
     s = s.drop(columns="toi5").round(4)
     s.to_csv(HERE / "xg_seasons.csv", index=False)
     stars = pd.Series(confirmed, dtype=int)
@@ -335,7 +369,8 @@ def seasons(refresh=()):
         "about": "Season (start year) each skater was confirmed a star by on-ice and individual xG "
                  "and 5-on-5 primary assists (training/xg_star.py): his best 3 regular seasons average above that "
                  "season's star line (the top 10% of regulars at his position), or one season 10+ above it, or "
-                 "a rookie season above it before he's 21.",
+                 "a rookie season above it before he's 21; before 2010-11 (no xG), a season at 100+ NHL points per 84 "
+                 "games for a forward or 75+ for a defenseman.",
         "stars": {str(int(k)): int(v) for k, v in stars.items()}}, indent=0), encoding="utf-8")
     share = s[s.regular].groupby(["pos"]).star_share.mean()
     print(f"{len(s)} player-seasons {s.season.min()}-{s.season.max()}; star line ~top {share['F']:.0%} of F, "

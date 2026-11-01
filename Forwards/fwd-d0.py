@@ -39,17 +39,17 @@ import sys
 # For the WJC-20, PLAYED and PER_PTS84 each also move by *_WJC_AGE per year of
 # age at the tournament (Jan 1) away from WJC_AGE_CENTER: making an under-20
 # team at 17 says more than making it at 19.
-NHLER_INTERCEPT = -2.331304
-NHLER_COEF      =  0.173426
+NHLER_INTERCEPT = -2.309010
+NHLER_COEF      =  0.170316
 NHLER_SHAPE     = 'linear'   # COEF multiplies shape(pts/84): "linear", "log" (log(1+x)) or "sqrt"
-NHLER_WJC       = {"wjc-18": (0.180040, 0.014416), "wjc-20": (0.658918, 0.004787)}
-NHLER_WJC_AGE   = {"wjc-20": (-0.190014, 0.003288)}
+NHLER_WJC       = {"wjc-18": (0.176443, 0.014882), "wjc-20": (0.658908, 0.004836)}
+NHLER_WJC_AGE   = {"wjc-20": (-0.189259, 0.003207)}
 
-STAR_INTERCEPT  = -10.633168
-STAR_COEF       =  3.392797
+STAR_INTERCEPT  = -10.560837
+STAR_COEF       =  3.368696
 STAR_SHAPE      = 'log'
-STAR_WJC        = {"wjc-18": (-0.215822, 0.017282), "wjc-20": (-0.027090, 0.027506)}
-STAR_WJC_AGE    = {"wjc-20": (-0.769272, 0.029937)}
+STAR_WJC        = {"wjc-18": (-0.232596, 0.015809), "wjc-20": (-0.006473, 0.027268)}
+STAR_WJC_AGE    = {"wjc-20": (-0.738814, 0.029569)}
 
 WJC_AGE_CENTER  = 19.0
 WJC_AGE_TYPICAL = 18.0   # median age at the WJC-20 for this season, the default
@@ -146,7 +146,7 @@ def wjc_log_odds(terms, age_terms, wjc, age=None):
 
 # pts/84 above this (the top 0.5% of the training sample) counts as this: the model
 # doesn't extrapolate past the seasons it learned from.
-PTS84_CAP = 26.393
+PTS84_CAP = 47.631
 
 
 def shape(pts84, kind):

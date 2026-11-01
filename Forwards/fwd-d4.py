@@ -38,14 +38,14 @@ import sys
 # For the WJC-20, PLAYED and PER_PTS84 each also move by *_WJC_AGE per year of
 # age at the tournament (Jan 1) away from WJC_AGE_CENTER: making an under-20
 # team at 17 says more than making it at 19.
-NHLER_INTERCEPT = -3.158891
-NHLER_COEF      =  0.126404
+NHLER_INTERCEPT = -3.158794
+NHLER_COEF      =  0.126398
 NHLER_SHAPE     = 'linear'   # COEF multiplies shape(pts/84): "linear", "log" (log(1+x)) or "sqrt"
 NHLER_WJC       = {}
 NHLER_WJC_AGE   = {}
 
-STAR_INTERCEPT  = -10.372166
-STAR_COEF       =  1.406626
+STAR_INTERCEPT  = -10.555067
+STAR_COEF       =  1.438786
 STAR_SHAPE      = 'sqrt'
 STAR_WJC        = {}
 STAR_WJC_AGE    = {}
@@ -143,7 +143,7 @@ def wjc_log_odds(terms, age_terms, wjc, age=None):
 
 # pts/84 above this (the top 0.5% of the training sample) counts as this: the model
 # doesn't extrapolate past the seasons it learned from.
-PTS84_CAP = 88.308
+PTS84_CAP = 124.923
 
 
 def shape(pts84, kind):

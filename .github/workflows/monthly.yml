@@ -20,7 +20,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: monthly-update
+  group: nhle-updates   # shared with the daily prospects job, so their commits don't race
   cancel-in-progress: false
 
 jobs:
@@ -77,4 +77,5 @@ jobs:
           git add training/stars.json training/xg_totals.csv training/xg_seasons.csv training/positions.json training/primary_assists.csv training/rookies.csv web/prospects.json web/prospect_nations.json
           if git diff --cached --quiet; then echo "Nothing changed."; exit 0; fi
           git commit -m "Monthly update: stars and the next two draft classes"
+          git pull --rebase origin nhle-models
           git push origin HEAD:nhle-models

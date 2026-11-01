@@ -1,0 +1,42 @@
+# Daily: the next two draft classes (web/prospects.py), so a prospect's games this season stay current.
+# The monthly job (monthly.yml) rebuilds the stars; both commit to nhle-models, one at a time, and the
+# site picks the new web/prospects.json up on its next update.
+
+name: Daily prospects
+
+on:
+  schedule:
+    - cron: "0 10 * * *"      # 10:00 UTC, after the night's games
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: nhle-updates
+  cancel-in-progress: false
+
+jobs:
+  prospects:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: nhle-models
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.13"
+
+      - name: The next two draft classes
+        run: uv run --no-project --with "puckscrape @ git+https://github.com/CascV8/Puckscrape.git" python web/prospects.py
+
+      - name: Commit what changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git add web/prospects.json web/prospect_nations.json
+          if git diff --cached --quiet; then echo "Nothing changed."; exit 0; fi
+          git commit -m "Daily update: the next two draft classes"
+          git pull --rebase origin nhle-models
+          git push origin HEAD:nhle-models

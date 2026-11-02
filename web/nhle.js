@@ -11,7 +11,6 @@
 // (tournaments and short events aside).
 
 export const SEASONS = [-1, 0, 1, 2, 3, 4, 5];
-export const LIVE_MIN_GP = 20;   // games before a season under way is a card's latest
 export const label = rel => rel === 0 ? "DY" : rel < 0 ? `D${rel}` : `D+${rel}`;
 const sigmoid = x => 1 / (1 + Math.exp(-x));
 
@@ -136,9 +135,7 @@ export function buildCard(spec, player, current) {
     if (starFrom != null && year >= starFrom) { out.star = 1; out.nhler = 1; out.starKnown = true; }
     return out;
   });
-  // The latest rated season, but not a season under way until it has LIVE_MIN_GP games: a dozen games
-  // shouldn't overrule a full draft year (a teenager scoreless in his first NHL games reads as a bust).
-  const rated = [...seasons].reverse().filter(s => s.nhler != null);
-  const latest = rated.find(s => !s.inProgress || s.regGp >= LIVE_MIN_GP) ?? rated[0];
+  // The newest rated season, a season under way included once it's rated (spec.min_gp games)
+  const latest = [...seasons].reverse().find(s => s.nhler != null);
   return { group, draftYear, drafted: !!player.draft?.year, seasons, latest };
 }

@@ -191,10 +191,10 @@ test("the API rejects bad parameters without calling upstream", async () => {
   assert.deepEqual(await call("photo", "name=Some%20One&seasons=echl:2025,ohl:20x5"), [200, { url: null }]);   // nothing to look up
 });
 
-test("a season under way is the latest only once it has 20 games", () => {
+test("a season under way is the latest once it's rated", () => {
   const stats = n => [{ season: 2025, type: "reg", league: "OHL", team: "A", gp: 60, g: 30, a: 40, pts: 70 },
     { season: 2026, type: "reg", league: "NHL", team: "B", gp: n, g: 0, a: 0, pts: 0 }];
   const card = n => buildCard(SPEC, { name: "Y", position: "D", birthDate: "2007-10-01", draft: null, stats: stats(n) }, 2026);
-  assert.equal(card(14).latest.label, "DY");
-  assert.equal(card(25).latest.label, "D+1");
+  assert.equal(card(5).latest.label, "DY");     // under the 10 games a season needs to be rated
+  assert.equal(card(14).latest.label, "D+1");
 });

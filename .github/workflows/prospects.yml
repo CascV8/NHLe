@@ -35,7 +35,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
-          git add web/prospects.json web/prospect_nations.json
+          git add web/prospects.json web/prospect_nations.json web/prospect_games.json
           if git diff --cached --quiet; then echo "Nothing changed."; exit 0; fi
           git commit -m "Daily update: the next two draft classes"
           git pull --rebase origin nhle-models

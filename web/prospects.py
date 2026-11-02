@@ -32,6 +32,9 @@ from puckscrape import _http
 WEB = Path(__file__).resolve().parent
 OUT = WEB / "prospects.json"
 NATIONS = WEB / "prospect_nations.json"   # "client:player id" -> country, from HockeyTech profiles (kept)
+# Each player's games per team this season as of the last build, and the day each last went up: a player traded or
+# moved mid-season shows his new team once he plays there, not the team he has the most games with.
+GAMES = WEB / "prospect_games.json"       # {player id: {"league|team": [games, "YYYY-MM-DD" they last went up]}}
 RANKINGS = "https://api-web.nhle.com/v1/draft/rankings/{year}/{category}"
 SKIP = {"sdhl", "auroraliiga"}                  # women's leagues
 # Name matching for sites without birth dates runs within a region: North America is one (a freshman's
@@ -39,6 +42,32 @@ SKIP = {"sdhl", "auroraliiga"}                  # women's leagues
 REGION = {"Canada": "North America", "USA": "North America"}
 KEYS = {"hockeyallsvenskan": "allsvenskan", "extraliga": "czechia", "maxa-liga": "czechia2"}
 FINNISH_JUNIOR = {"u18-sm-sarja", "u20-sm-sarja"}
+SWEDISH = {"shl", "hockeyallsvenskan", "hockeyettan", "u20-nationell", "u18-nationell"}   # tables give "N/A"
+BLANK = {"", "n/a", "na", "-", "--", "none", "unknown"}
+# A HockeyTech profile with no country often has its province or state (homeprov): AB, ON, Alaska...
+PROVINCES = {"AB", "BC", "MB", "NB", "NL", "NS", "NT", "NU", "ON", "PE", "QC", "SK", "YT", "PEI", "PQ", "NF", "ALBERTA",
+             "BRITISH COLUMBIA", "MANITOBA", "NEW BRUNSWICK", "NEWFOUNDLAND", "NEWFOUNDLAND AND LABRADOR", "NOVA SCOTIA",
+             "NORTHWEST TERRITORIES", "NUNAVUT", "ONTARIO", "PRINCE EDWARD ISLAND", "QUEBEC", "QUÉBEC", "SASKATCHEWAN", "YUKON"}
+STATES = {"AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "DC", "FL", "GA", "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA",
+          "ME", "MD", "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ", "NM", "NY", "NC", "ND", "OH", "OK", "OR",
+          "PA", "RI", "SC", "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY", "ALABAMA", "ALASKA", "ARIZONA",
+          "ARKANSAS", "CALIFORNIA", "COLORADO", "CONNECTICUT", "DELAWARE", "FLORIDA", "GEORGIA", "HAWAII", "IDAHO",
+          "ILLINOIS", "INDIANA", "IOWA", "KANSAS", "KENTUCKY", "LOUISIANA", "MAINE", "MARYLAND", "MASSACHUSETTS",
+          "MICHIGAN", "MINNESOTA", "MISSISSIPPI", "MISSOURI", "MONTANA", "NEBRASKA", "NEVADA", "NEW HAMPSHIRE",
+          "NEW JERSEY", "NEW MEXICO", "NEW YORK", "NORTH CAROLINA", "NORTH DAKOTA", "OHIO", "OKLAHOMA", "OREGON",
+          "PENNSYLVANIA", "RHODE ISLAND", "SOUTH CAROLINA", "SOUTH DAKOTA", "TENNESSEE", "TEXAS", "UTAH", "VERMONT",
+          "VIRGINIA", "WASHINGTON", "WEST VIRGINIA", "WISCONSIN", "WYOMING"}
+
+
+def nation_of(v):
+    """A table's nationality, or "" for the placeholders some sites print ("N/A")."""
+    v = str(v or "").strip()
+    return "" if v.lower() in BLANK else v
+
+
+def from_province(prov):
+    p = str(prov or "").strip().upper().rstrip(".")
+    return "Canada" if p in PROVINCES else "USA" if p in STATES else ""
 
 log = logging.getLogger("prospects")
 
@@ -101,25 +130,27 @@ def tables(seasons):
                         "code": code, "country": REGION.get(country, country), "season": y, "type": "reg" if phase == "regular" else "po",
                         "name": r.get("player"), "key": name_key(r.get("player")), "born": birth(r.get(bcol)) if bcol else None,
                         "pos": position(r.get("position")), "team": r.get("team") or "",
-                        "nation": r.get("birthcntry") or r.get("nationality") or "", "site_id": r.get("player_id"),
+                        "nation": nation_of(r.get("birthcntry")) or nation_of(r.get("nationality")), "site_id": r.get("player_id"),
                         "gp": int(r.get("gp") or 0), "g": int(r.get("g") or 0), "a": int(r.get("a") or 0), "pts": int(r.get("pts") or 0)})
                 log.info("%s %d %s: %d", code, y, phase, len(df))
     return pd.DataFrame(rows)
 
 
 def hockeytech_nation(code, site_id, cache):
-    """A HockeyTech player's country from his profile (the stats tables leave it blank): his home
-    country, else his birth country. Looked up once and kept in web/prospect_nations.json."""
+    """A HockeyTech player's country from his profile (the stats tables leave it blank): his home country, else his
+    birth country, else the country of his home province or state. Kept in web/prospect_nations.json; one cached
+    blank is looked up again."""
     from puckscrape.leagues import LEAGUES, hockeytech
     lg = LEAGUES.get(code)
     if lg is None or lg.adapter is not hockeytech or site_id is None or site_id != site_id:
         return ""
     client = lg.opts["client"]
     k = f"{client}:{int(site_id)}"
-    if k not in cache:
+    if not cache.get(k):
         try:
             info = hockeytech._kit(client, view="player", category="profile", player_id=int(site_id)).get("Player") or {}
-            cache[k] = info.get("homecntry") or info.get("birthcntry") or ""
+            cache[k] = (nation_of(info.get("homecntry")) or nation_of(info.get("birthcntry"))
+                        or from_province(info.get("homeprov")) or from_province(info.get("birthprov")))
         except Exception as e:
             log.info("profile %s: %s", k, str(e)[:60])
             return ""
@@ -160,6 +191,9 @@ def build(today=None):
     t = t[~((t.code == "ncaa") & (namesake | too_young))]
     players, lists = {}, {}
     nations = json.loads(NATIONS.read_text(encoding="utf-8")) if NATIONS.exists() else {}
+    games = json.loads(GAMES.read_text(encoding="utf-8")) if GAMES.exists() else {}
+    day = (today or dt.date.today()).isoformat()
+    new_games = {}
     for draft_year, label in classes.items():
         lo, hi = window(draft_year)
         c = t[(t.born >= lo) & (t.born <= hi)]
@@ -167,7 +201,15 @@ def build(today=None):
         for (key, born), g in c.groupby(["key", "born"]):
             pid = f"{key.replace(' ', '-')}-{born}"
             reg = g[(g.type == "reg") & (g.season == y)]
-            main = (reg if len(reg) else g).sort_values("gp", ascending=False).iloc[0]
+            # this season's teams: the one where his games went up most recently, else the one with the most games
+            seen = {}
+            for r in reg.itertuples():
+                k, before = f"{r.code}|{r.team}", games.get(pid, {}).get(f"{r.code}|{r.team}")
+                went_up = day if before is not None and r.gp > before[0] else (before[1] if before else "")
+                seen[r.Index] = went_up
+                new_games.setdefault(pid, {})[k] = [int(r.gp), went_up]
+            main = (reg.assign(_seen=reg.index.map(seen)).sort_values(["_seen", "gp"], ascending=False).iloc[0]
+                    if len(reg) else g.sort_values("gp", ascending=False).iloc[0])
             nation = next((n for n in g.nation if n), "")
             for r in g.itertuples():           # still blank: a HockeyTech profile has it
                 if nation:
@@ -175,6 +217,8 @@ def build(today=None):
                 nation = hockeytech_nation(r.code, r.site_id, nations)
             if not nation and set(g.code) & FINNISH_JUNIOR:
                 nation = "Finland"   # Finland's junior leagues publish no nationality; nearly all their players are Finnish
+            if not nation and set(g.code) & SWEDISH:
+                nation = "Sweden"    # nor do Sweden's ("N/A"); nearly all their draft-age players are Swedish
             players[pid] = {
                 "id": pid, "name": main["name"], "birthDate": born, "position": g.pos.mode().iloc[0],
                 "team": main["team"], "league": KEYS.get(main["code"], main["code"]), "nation": nation,
@@ -199,6 +243,7 @@ def build(today=None):
         lists[str(draft_year)] = {"label": label, "players": sorted(set(ids)), "rankings": ranks}
         log.info("%d class (%s): %d players, rankings: %s", draft_year, label, len(set(ids)), list(ranks) or "none yet")
     NATIONS.write_text(json.dumps(dict(sorted(nations.items())), ensure_ascii=False), encoding="utf-8")
+    GAMES.write_text(json.dumps(dict(sorted(new_games.items())), ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     out = {"generated": (today or dt.date.today()).isoformat(), "season": y, "classes": lists, "players": players}
     OUT.write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     return out

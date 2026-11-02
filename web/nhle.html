@@ -468,7 +468,8 @@ async function playerPhoto(p) {
 // Make a studio photo's backdrop transparent. The backdrop's colour is read off the top and side edges (white for
 // some leagues, light grey or a gradient for others); pixels close to it are flood-filled inward from those edges (not
 // the bottom, where a white shirt can touch the frame), stepping on through a gradient while each pixel stays close to
-// its neighbour. Then only the largest shape (the player) is kept, so a league logo in a corner goes too, and the light
+// its neighbour and no more colourful than the backdrop (a grey backdrop has no warm pixels; without that check the
+// fill crept across a face's smooth shading and took the head, Carson Carels). Then only the largest shape (the player) is kept, so a league logo in a corner goes too, and the light
 // pixels along the cut are faded.
 function cutout(img, tol = 34, step = 9, soft = 60) {
   const w = img.naturalWidth, h = img.naturalHeight;
@@ -484,11 +485,15 @@ function cutout(img, tol = 34, step = 9, soft = 60) {
   const back = [median(0), median(1), median(2)];
   const far = i => Math.max(Math.abs(px[i] - back[0]), Math.abs(px[i + 1] - back[1]), Math.abs(px[i + 2] - back[2]));
   const near = (i, j) => Math.max(Math.abs(px[i] - px[j]), Math.abs(px[i + 1] - px[j + 1]), Math.abs(px[i + 2] - px[j + 2]));
+  const chroma = i => Math.max(px[i], px[i + 1], px[i + 2]) - Math.min(px[i], px[i + 1], px[i + 2]);
+  const backChroma = Math.max(...back) - Math.min(...back);
   const bg = new Uint8Array(w * h), queue = [];
   const take = (k, from) => {
     if (bg[k]) return;
     const d = far(k * 4);
-    if (d <= tol || (from >= 0 && d <= tol * 2.5 && near(k * 4, from * 4) <= step)) { bg[k] = 1; queue.push(k); }
+    if (d <= tol || (from >= 0 && d <= tol * 2.5 && near(k * 4, from * 4) <= step && chroma(k * 4) <= backChroma + 18)) {
+      bg[k] = 1; queue.push(k);
+    }
   };
   for (let x = 0; x < w; x++) take(x, -1);
   for (let y = 0; y < h; y++) { take(y * w, -1); take(y * w + w - 1, -1); }

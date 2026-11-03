@@ -47,9 +47,19 @@ SKIP = {"sdhl", "auroraliiga"}                  # women's leagues
 # Name matching for sites without birth dates runs within a region: North America is one (a freshman's
 # NCAA line matches his junior seasons in Canada or the US), each European country its own.
 REGION = {"Canada": "North America", "USA": "North America"}
-KEYS = {"hockeyallsvenskan": "allsvenskan", "extraliga": "czechia", "maxa-liga": "czechia2"}
+KEYS = {"hockeyallsvenskan": "allsvenskan", "extraliga": "czechia", "maxa-liga": "czechia2",
+        "iihf-wm20": "wjc-20", "iihf-wm18": "wjc-18"}   # the World Juniors as the models know them
+TOURNAMENTS = {"iihf-wm20", "iihf-wm18"}   # the only national-team events kept (the models use them)
 FINNISH_JUNIOR = {"u18-sm-sarja", "u20-sm-sarja"}
-SWEDISH = {"shl", "hockeyallsvenskan", "hockeyettan", "u20-nationell", "u18-nationell"}   # tables give "N/A"
+SWEDISH = {"shl", "hockeyallsvenskan", "hockeyettan", "u20-nationell", "u18-nationell"}   # SHL tables give "N/A"
+# Russia's leagues block scripts on their own sites; HockeyDB has their rosters (a season once it's well under way).
+# Its rows give age and birthplace but not birth dates, so each teenager's date is read from his HockeyDB page once
+# and kept (HOCKEYDB_BIRTHS); HockeyDB asks for a few seconds between requests.
+RUSSIA = {280: "khl", 352: "vhl", 479: "mhl"}   # HockeyDB league ids
+HOCKEYDB_BIRTHS = WEB / "prospect_hockeydb_births.json"   # HockeyDB player id -> birth date (kept)
+HOCKEYDB_SEASONS = WEB / "prospect_hockeydb_seasons.json"   # "<league id>:<year>" -> a complete season's rows (kept:
+                                                            # it won't change, so it's read from HockeyDB once)
+MONTHS = {m: i for i, m in enumerate(["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"], 1)}
 BLANK = {"", "n/a", "na", "-", "--", "none", "unknown"}
 # A HockeyTech profile with no country often has its province or state (homeprov): AB, ON, Alaska...
 PROVINCES = {"AB", "BC", "MB", "NB", "NL", "NS", "NT", "NU", "ON", "PE", "QC", "SK", "YT", "PEI", "PQ", "NF", "ALBERTA",
@@ -119,8 +129,9 @@ def window(draft_year):
 def tables(seasons):
     leagues = ps.leagues.leagues()
     rows = []
-    for code, country in zip(leagues.code, leagues.country):
-        if code in SKIP:
+    for code, country, level in zip(leagues.code, leagues.country, leagues.level):
+        # men's club leagues, and the U20 and U18 World Championships
+        if code in SKIP or "women" in str(level) or ("national" in str(level) and code not in TOURNAMENTS):
             continue
         for y in seasons:
             for phase in ("regular", "playoffs"):
@@ -140,6 +151,69 @@ def tables(seasons):
                         "nation": nation_of(r.get("birthcntry")) or nation_of(r.get("nationality")), "site_id": r.get("player_id"),
                         "gp": int(r.get("gp") or 0), "g": int(r.get("g") or 0), "a": int(r.get("a") or 0), "pts": int(r.get("pts") or 0)})
                 log.info("%s %d %s: %d", code, y, phase, len(df))
+    return pd.DataFrame(rows)
+
+
+def hockeydb_birth(pid, cache):
+    """A HockeyDB player's birth date from his page ("Born Feb 22 2007"), kept in ``cache``."""
+    k = str(int(pid))
+    if k not in cache:
+        try:
+            text = ps.hockeydb._soup(f"/ihdb/stats/pdisplay.php?pid={k}").get_text(" ", strip=True)
+            m = re.search(r"Born\s+([A-Z][a-z]{2})[a-z]*\.?\s+(\d{1,2}),?\s+(\d{4})", text)
+            cache[k] = f"{m.group(3)}-{MONTHS[m.group(1)]:02d}-{int(m.group(2)):02d}" if m and m.group(1) in MONTHS else ""
+        except Exception as e:
+            log.info("hockeydb %s: %s", k, str(e)[:60])
+            return ""
+    return cache[k]
+
+
+def russia_tables(seasons, current, max_age=18):
+    """The KHL, VHL and MHL from HockeyDB: rows like tables()'s for every player ``max_age`` or younger that season.
+    A complete season is read once and kept; the season under way is read each run. If HockeyDB refuses (403),
+    nothing more is asked of it this run."""
+    births = json.loads(HOCKEYDB_BIRTHS.read_text(encoding="utf-8")) if HOCKEYDB_BIRTHS.exists() else {}
+    kept = json.loads(HOCKEYDB_SEASONS.read_text(encoding="utf-8")) if HOCKEYDB_SEASONS.exists() else {}
+    rows, refused = [], False
+    for lid, code in RUSSIA.items():
+        for y in seasons:
+            key = f"{lid}:{y}"
+            if y != current and key in kept:
+                rows += kept[key]
+                continue
+            if refused:
+                continue
+            try:
+                df = ps.hockeydb.skaters(lid, y)
+            except Exception as e:
+                log.info("%s %d: %s", code, y, str(e)[:70])
+                refused = refused or "403" in str(e)
+                continue
+            if df.empty:
+                log.info("%s %d: not on HockeyDB yet", code, y)
+                continue
+            young = df[pd.to_numeric(df.age, errors="coerce") <= max_age]
+            start = len(rows)
+            for r in young.to_dict("records"):
+                born = hockeydb_birth(r["pid"], births)
+                if not born:
+                    continue
+                place = str(r.get("birthplace") or "")
+                nation = place.split(":")[0].strip() if ":" in place else "Russia"
+                base = {"code": code, "country": "Russia", "season": y, "name": r["player"], "key": name_key(r["player"]),
+                        "born": born, "pos": position(r.get("pos")), "team": r.get("team") or "", "nation": nation,
+                        "site_id": None}
+                rows.append(base | {"type": "reg", "gp": int(r.get("gp") or 0), "g": int(r.get("g") or 0),
+                                    "a": int(r.get("a") or 0), "pts": int(r.get("pts") or 0)})
+                if int(r.get("po_gp") or 0):
+                    rows.append(base | {"type": "po", "gp": int(r["po_gp"]), "g": int(r.get("po_g") or 0),
+                                        "a": int(r.get("po_a") or 0), "pts": int(r.get("po_pts") or 0)})
+            if y != current and all(hockeydb_birth(p, births) for p in young.pid):   # complete: keep it
+                kept[key] = rows[start:]
+            log.info("%s %d: %d players %d or younger", code, y, len(young), max_age)
+    HOCKEYDB_BIRTHS.write_text(json.dumps(dict(sorted(births.items())), separators=(",", ":")), encoding="utf-8")
+    HOCKEYDB_SEASONS.write_text(json.dumps(dict(sorted(kept.items())), ensure_ascii=False, separators=(",", ":")),
+                                encoding="utf-8")
     return pd.DataFrame(rows)
 
 
@@ -194,7 +268,7 @@ def central_scouting(year):
 
 def build(today=None):
     y = season_start(today)
-    t = tables([y - 1, y])
+    t = pd.concat([tables([y - 1, y]), russia_tables([y - 1, y], current=y)], ignore_index=True)
     t = t[t.pos != "G"]
     classes = {y + 1: "draft year", y + 2: "D-1"}
     # Birth dates for players listed without one: the unique same-name player with one in the same country

@@ -19,6 +19,7 @@ Needs puckscrape (pip install git+https://github.com/CascV8/Puckscrape.git).
 """
 
 import datetime as dt
+import io
 import json
 import logging
 import re
@@ -36,6 +37,12 @@ NATIONS = WEB / "prospect_nations.json"   # "client:player id" -> country, from 
 # moved mid-season shows his new team once he plays there, not the team he has the most games with.
 GAMES = WEB / "prospect_games.json"       # {player id: {"league|team": [games, "YYYY-MM-DD" they last went up]}}
 RANKINGS = "https://api-web.nhle.com/v1/draft/rankings/{year}/{category}"
+# Other rankings, saved by hand from wherever they're published (EP's consolidated ranking, TSN's Bob McKenzie,
+# The Athletic's Scott Wheeler, Daily Faceoff...): web/rankings/<draft year>/<any name>.csv, one row per player,
+#     # title: Daily Faceoff (Oct 9, Steven Ellis)      <- the name in the Ranking menu (else the file name)
+#     rank,name,born                                     <- born (YYYY-MM-DD) optional: it settles two players
+#     1,Landon DuPont,                                      of the same name
+OWN_RANKINGS = WEB / "rankings"
 SKIP = {"sdhl", "auroraliiga"}                  # women's leagues
 # Name matching for sites without birth dates runs within a region: North America is one (a freshman's
 # NCAA line matches his junior seasons in Canada or the US), each European country its own.
@@ -157,6 +164,19 @@ def hockeytech_nation(code, site_id, cache):
     return cache[k]
 
 
+def own_rankings(year):
+    """The saved rankings for a draft year: {list name: [{"rank", "name", "born"}]}."""
+    out = {}
+    for path in sorted((OWN_RANKINGS / str(year)).glob("*.csv")):
+        lines = path.read_text(encoding="utf-8-sig").splitlines()
+        title = next((l.split(":", 1)[1].strip() for l in lines if l.lower().startswith("# title:")), path.stem)
+        rows = [l for l in lines if l.strip() and not l.lstrip().startswith("#")]
+        df = pd.read_csv(io.StringIO("\n".join(rows)), dtype=str).fillna("")
+        out[title] = [{"rank": int(r["rank"]), "name": r["name"].strip(), "born": birth(r.get("born", "")) or ""}
+                      for r in df.to_dict("records") if r.get("rank", "").strip().isdigit() and r.get("name", "").strip()]
+    return out
+
+
 def central_scouting(year):
     """NHL Central Scouting's lists for a draft year (once published): {list name: [players]}."""
     out = {}
@@ -240,6 +260,26 @@ def build(today=None):
                                     "nation": r.get("birthCountry", ""), "draft": None, "class": draft_year, "stats": []}
                     ids.append(pid)
                 ranks[list_name][pid] = r.get("finalRank") or r.get("midtermRank")
+        # Saved rankings, matched by name within the class (and birth date when the list gives one)
+        in_class = {}
+        for pid in ids:
+            in_class.setdefault(name_key(players[pid]["name"]), []).append(pid)
+        for list_name, rows in own_rankings(draft_year).items():
+            ranks[list_name], missing = {}, []
+            for r in rows:
+                found = [p for p in in_class.get(name_key(r["name"]), []) if not r["born"] or players[p]["birthDate"] == r["born"]]
+                if len(found) == 1:
+                    pid = found[0]
+                else:   # not in the tables we read (or two of that name): listed as the ranking has him
+                    pid = f"{name_key(r['name']).replace(' ', '-')}-{r['born'] or 'ranked'}"
+                    missing.append(r["name"])
+                    if pid not in players:
+                        players[pid] = {"id": pid, "name": r["name"], "birthDate": r["born"], "position": None, "team": "",
+                                        "league": "", "nation": "", "draft": None, "class": draft_year, "stats": []}
+                        ids.append(pid)
+                ranks[list_name][pid] = r["rank"]
+            log.info("%d %s: %d ranked, %d not matched to a table%s", draft_year, list_name, len(rows), len(missing),
+                     f" ({', '.join(missing)})" if missing else "")
         lists[str(draft_year)] = {"label": label, "players": sorted(set(ids)), "rankings": ranks}
         log.info("%d class (%s): %d players, rankings: %s", draft_year, label, len(set(ids)), list(ranks) or "none yet")
     NATIONS.write_text(json.dumps(dict(sorted(nations.items())), ensure_ascii=False), encoding="utf-8")

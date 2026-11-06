@@ -1,8 +1,7 @@
 # Daily: the next two draft classes (web/prospects.py), so a prospect's games, team and country stay current:
 # league websites through puckscrape (the KHL/MHL app feed, Czech and Swiss youth leagues, Sweden's U18 series),
 # HockeyDB for the VHL, and Elite Prospects for countries and moved players' current teams.
-# puckscrape comes from its khl-czech-liiga branch until that's merged; set the repository variable
-# PUCKSCRAPE_REF (e.g. to main) to change it without editing this file.
+# puckscrape comes from its main branch; the repository variable PUCKSCRAPE_REF pins another ref.
 # The monthly job (monthly.yml) rebuilds the stars; both commit to nhle-models, one at a time, and the
 # site picks the new web/prospects.json up on its next update.
 
@@ -33,7 +32,7 @@ jobs:
           python-version: "3.13"
 
       - name: The next two draft classes
-        run: uv run --no-project --with "puckscrape @ git+https://github.com/CascV8/Puckscrape.git@${{ vars.PUCKSCRAPE_REF || 'khl-czech-liiga' }}" python web/prospects.py
+        run: uv run --no-project --with "puckscrape @ git+https://github.com/CascV8/Puckscrape.git@${{ vars.PUCKSCRAPE_REF || 'main' }}" python web/prospects.py
 
       - name: Commit what changed
         run: |

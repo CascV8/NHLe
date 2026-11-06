@@ -59,7 +59,7 @@ jobs:
         run: uv run --project xg-model python training/xg_star.py update
 
       - name: The next two draft classes
-        run: uv run --no-project --with "puckscrape @ git+https://github.com/CascV8/Puckscrape.git@${{ vars.PUCKSCRAPE_REF || 'khl-czech-liiga' }}" python web/prospects.py
+        run: uv run --no-project --with "puckscrape @ git+https://github.com/CascV8/Puckscrape.git@${{ vars.PUCKSCRAPE_REF || 'main' }}" python web/prospects.py
 
       - name: Save the xG model and cached games
         if: always()

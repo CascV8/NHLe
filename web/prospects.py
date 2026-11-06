@@ -215,8 +215,11 @@ def fold(word):
 
 
 def match_key(name):
-    """A name for matching across sites: tokens folded and sorted ('Pustovoi Andrei' = 'Andrei Pustovoy')."""
-    return " ".join(sorted(fold(t) for t in name_tokens(name)))
+    """A name for matching across sites: tokens folded and sorted ('Pustovoi Andrei' = 'Andrei Pustovoy'), without
+    the middle initial the KHL feed adds to tell namesakes apart ('Sergei A. Skvortsov' = 'Sergei Skvortsov'; two
+    namesakes then share the key, and a ranking that matches both is left unmatched)."""
+    toks = name_tokens(name)
+    return " ".join(sorted(fold(t) for i, t in enumerate(toks) if len(t) > 1 or i == 0))
 
 
 def one_edit(a, b):
@@ -302,20 +305,40 @@ def same_team(a, b):
     return bool(words(a) & words(b) - {"hockey", "junior", "juniors", "academy", "prep", "club"})
 
 
+EP_POOL = WEB / "prospect_ep_pool.json"   # the last Draft Center pool read (kept: EP challenges GitHub's runners)
+EP_COLUMNS = ["draft_year", "player", "player_id", "position", "dob", "nation", "team", "league"]
+EP_BLOCKED = False   # set once EP answers with a Cloudflare challenge: nothing more is asked of it this run
+
+
 def ep_pool(draft_year):
     """Elite Prospects' Draft Center pool for a draft year (its ranked and unranked prospects, with birth dates,
-    country and current team), or an empty frame if EP has no pool for that year or can't be reached."""
+    country and current team). Elite Prospects puts a Cloudflare challenge on datacenter addresses like GitHub's
+    runners, so the pool is kept in web/prospect_ep_pool.json whenever it's read, and that copy is used when EP
+    can't be reached (run web/prospects.py from a home connection now and then to refresh it)."""
+    global EP_BLOCKED
+    df = pd.DataFrame()
     try:
         df = ps.eliteprospects.draft_rankings("consolidated-ranking", unranked=True)
     except Exception as e:
         log.info("Elite Prospects pool: %s", str(e)[:80])
-        return pd.DataFrame()
-    if df.empty or "draft_year" not in df or not (df.draft_year == draft_year).any():
-        return pd.DataFrame()
-    df = df[df.draft_year == draft_year].drop_duplicates("player_id").copy()
+    if not df.empty and "draft_year" in df and (df.draft_year == draft_year).any():
+        df = df[df.draft_year == draft_year].drop_duplicates("player_id")
+        EP_POOL.write_text(json.dumps({"draft_year": draft_year, "read": dt.date.today().isoformat(),
+                                       "players": df[[c for c in EP_COLUMNS if c in df]].astype(object)
+                                       .where(df.notna(), None).to_dict("records")}, ensure_ascii=False, default=str),
+                           encoding="utf-8")
+        log.info("Elite Prospects pool for %d: %d players", draft_year, len(df))
+    else:
+        EP_BLOCKED = True
+        kept = json.loads(EP_POOL.read_text(encoding="utf-8")) if EP_POOL.exists() else {}
+        if kept.get("draft_year") != draft_year:
+            log.info("Elite Prospects pool: not reachable, and no kept pool for %d", draft_year)
+            return pd.DataFrame()
+        df = pd.DataFrame(kept["players"])
+        log.info("Elite Prospects pool: not reachable; using the one kept from %s (%d players)", kept.get("read"), len(df))
+    df = df.copy()
     df["key"] = df.player.map(name_key)
     df["born"] = df.dob.astype(str).str[:10]
-    log.info("Elite Prospects pool for %d: %d players", draft_year, len(df))
     return df
 
 
@@ -353,14 +376,18 @@ def ep_league_nations(players, season, cache):
     for pid, p in players.items():
         if not p["nation"] and p["league"] in EP_LEAGUES:
             blank.setdefault(p["league"], []).append(pid)
+    if EP_BLOCKED:
+        log.info("Elite Prospects isn't answering this run: countries kept from earlier runs only")
+        return
     for league, pids in blank.items():
         try:
             df = ps.eliteprospects.skaters(EP_LEAGUES[league], f"{season}-{season + 1}")
         except Exception as e:
-            log.info("Elite Prospects %s: %s", league, str(e)[:70])
-            continue
-        if df.empty:
-            continue
+            log.info("Elite Prospects %s: %s; no more EP lookups this run", league, str(e)[:70])
+            break
+        if df.empty:   # EP returns nothing (rather than raising) when Cloudflare keeps refusing
+            log.info("Elite Prospects %s: nothing returned; no more EP lookups this run", league)
+            break
         df = df.assign(key=df.player.map(name_key))
         found = 0
         for pid in pids:
@@ -392,7 +419,7 @@ def apply_ep_pool(players, ids, pool, draft_year, season, spellings=None):
             p = players[hits[0]]
             if spellings is not None:
                 spellings.setdefault(hits[0], set()).add(r.player)
-            p["ep"] = int(r.player_id) if r.player_id == r.player_id else None
+            p["ep"] = (int(r.player_id) if pd.notna(r.player_id) else None)
             if not p["nation"] and isinstance(r.nation, str):
                 p["nation"] = r.nation
             stale = not any(s["season"] == season and s["type"] == "reg" for s in p["stats"])
@@ -405,7 +432,7 @@ def apply_ep_pool(players, ids, pool, draft_year, season, spellings=None):
                 players[pid] = {"id": pid, "name": r.player, "birthDate": r.born, "position": position(str(r.position).split("/")[0]),
                                 "team": r.team if isinstance(r.team, str) else "", "league": ep_league(r.league),
                                 "nation": r.nation if isinstance(r.nation, str) else "", "draft": None, "class": draft_year,
-                                "stats": [], "ep": int(r.player_id) if r.player_id == r.player_id else None}
+                                "stats": [], "ep": (int(r.player_id) if pd.notna(r.player_id) else None)}
                 ids.append(pid)
                 added += 1
     log.info("%d class: Elite Prospects updated %d teams, added %d players", draft_year, updated, added)

@@ -47,6 +47,27 @@ class TestSamePerson(unittest.TestCase):
         old = {"kazda-timothy-2008-10-04"}
         self.assertEqual(prospects.person_keys(t, old)[1], prospects.name_key("Timothy Kazda"))   # his card's id stays
 
+    def test_match_key_ignores_a_middle_initial(self):
+        self.assertEqual(prospects.match_key("Sergei A. Skvortsov"), prospects.match_key("Sergei Skvortsov"))
+        self.assertEqual(prospects.match_key("A.J. Gladman"), prospects.match_key("AJ Gladman"))   # leading initials stay
+        self.assertNotEqual(prospects.match_key("A.J. Gladman"), prospects.match_key("Gladman"))
+
+    def test_ep_pool_falls_back_to_the_kept_one(self):
+        import json, tempfile
+        from unittest import mock
+        with tempfile.TemporaryDirectory() as tmp:
+            kept = Path(tmp) / "pool.json"
+            kept.write_text(json.dumps({"draft_year": 2027, "read": "2026-11-05", "players": [
+                {"draft_year": 2027, "player": "Nazar Privalov", "player_id": 993675, "position": "RW/C",
+                 "dob": "2009-05-25", "nation": "Russia", "team": "CSKA Moskva", "league": "KHL"}]}), encoding="utf-8")
+            with mock.patch.object(prospects, "EP_POOL", kept), \
+                 mock.patch.object(prospects.ps.eliteprospects, "draft_rankings", return_value=pd.DataFrame()):
+                df = prospects.ep_pool(2027)
+                self.assertEqual(df.born.tolist(), ["2009-05-25"])
+                self.assertTrue(prospects.EP_BLOCKED)
+                self.assertTrue(prospects.ep_pool(2028).empty)   # a kept pool for another draft isn't used
+        prospects.EP_BLOCKED = False
+
     def test_same_team(self):
         self.assertTrue(prospects.same_team("HC Kometa Brno U20", "HC KOMETA BRNO"))
         self.assertTrue(prospects.same_team("CSKA Moskva", "CSKA"))

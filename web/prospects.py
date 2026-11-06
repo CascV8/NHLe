@@ -43,19 +43,45 @@ RANKINGS = "https://api-web.nhle.com/v1/draft/rankings/{year}/{category}"
 #     rank,name,born                                     <- born (YYYY-MM-DD) optional: it settles two players
 #     1,Landon DuPont,                                      of the same name
 OWN_RANKINGS = WEB / "rankings"
-SKIP = {"sdhl", "auroraliiga"}                  # women's leagues
+# Women's leagues; and the VHL, whose puckscrape table (HockeyDB) has no birth dates: russia_tables() reads it
+# with each teenager's date instead.
+SKIP = {"sdhl", "auroraliiga", "vhl"}
 # Name matching for sites without birth dates runs within a region: North America is one (a freshman's
 # NCAA line matches his junior seasons in Canada or the US), each European country its own.
 REGION = {"Canada": "North America", "USA": "North America"}
 KEYS = {"hockeyallsvenskan": "allsvenskan", "extraliga": "czechia", "maxa-liga": "czechia2",
-        "iihf-wm20": "wjc-20", "iihf-wm18": "wjc-18"}   # the World Juniors as the models know them
+        "iihf-wm20": "wjc-20", "iihf-wm18": "wjc-18",   # the World Juniors as the models know them
+        "czech-u20": "czechia-u20", "czech-u18": "czechia-u18", "u21-elit": "u21-elite"}
+# Leagues whose season takes many requests (the KHL app feed pages its players 16 at a time): a finished season's
+# rows are kept in KEPT and read once, like HockeyDB's.
+SLOW = {"khl", "mhl"}
+KEPT = WEB / "prospect_kept_seasons.json"   # "<code>:<year>:<phase>" -> that finished season's rows (kept)
+# Elite Prospects fills in what the league sites leave out. Its Draft Center pool (the upcoming draft's prospects,
+# with birth dates) gives a draft-year player's country and current team; for everyone else still without a
+# country, EP's league table for his league this season does (matched by name and team).
+EP_LEAGUES = {"ohl": "ohl", "whl": "whl", "qmjhl": "qmjhl", "ushl": "ushl", "bchl": "bchl", "ajhl": "ajhl",
+              "sjhl": "sjhl", "mjhl": "mjhl", "ojhl": "ojhl", "cchl": "cchl", "mjahl": "mjahl", "gohl": "gojhl",
+              "kijhl": "kijhl", "vijhl": "vijhl", "csshl": "csshl-u18"}
+# The same person written two ways ("Timo"/"Timothy Kazda", "A.J."/"AJ") is merged by birth date and surname
+# when the first names agree: one starts the other, they're a common nickname pair, or one letter apart.
+NICKNAMES = {frozenset(p) for p in [
+    ("nate", "nathan"), ("nate", "nathaniel"), ("kosta", "konstantinos"), ("kosta", "konstantin"), ("mike", "michael"),
+    ("mikey", "michael"), ("danny", "daniel"), ("tony", "anthony"), ("zack", "zachary"), ("zack", "zachery"),
+    ("jake", "jacob"), ("jim", "james"), ("jimmy", "james"), ("joe", "joseph"), ("joey", "joseph"), ("bill", "william"),
+    ("billy", "william"), ("bob", "robert"), ("bobby", "robert"), ("dick", "richard"), ("rick", "richard"),
+    ("ricky", "richard"), ("teddy", "edward"), ("ted", "edward"), ("sasha", "alexander"), ("sasha", "aleksandr"),
+    ("misha", "mikhail"), ("dima", "dmitri"), ("dima", "dmitry"), ("vova", "vladimir"), ("kolya", "nikolai"),
+    ("johnny", "jonathan"), ("jon", "jonathan"), ("nick", "nicholas"), ("nicky", "nicholas"), ("chris", "christopher"),
+    ("matty", "matthew"), ("mitch", "mitchell"), ("ollie", "oliver"), ("bo", "beau")]}
 TOURNAMENTS = {"iihf-wm20", "iihf-wm18"}   # the only national-team events kept (the models use them)
 FINNISH_JUNIOR = {"u18-sm-sarja", "u20-sm-sarja"}
 SWEDISH = {"shl", "hockeyallsvenskan", "hockeyettan", "u20-nationell", "u18-nationell"}   # SHL tables give "N/A"
 # Russia's leagues block scripts on their own sites; HockeyDB has their rosters (a season once it's well under way).
 # Its rows give age and birthplace but not birth dates, so each teenager's date is read from his HockeyDB page once
 # and kept (HOCKEYDB_BIRTHS); HockeyDB asks for a few seconds between requests.
-RUSSIA = {280: "khl", 352: "vhl", 479: "mhl"}   # HockeyDB league ids
+# The KHL and MHL now come from the KHL's own app feed through puckscrape (with birth dates); the VHL still
+# comes from HockeyDB.
+RUSSIA = {352: "vhl"}   # HockeyDB league ids
 HOCKEYDB_BIRTHS = WEB / "prospect_hockeydb_births.json"   # HockeyDB player id -> birth date (kept)
 HOCKEYDB_SEASONS = WEB / "prospect_hockeydb_seasons.json"   # "<league id>:<year>" -> a complete season's rows (kept:
                                                             # it won't change, so it's read from HockeyDB once)
@@ -126,8 +152,9 @@ def window(draft_year):
     return dt.date(draft_year - 19, 9, 16).isoformat(), dt.date(draft_year - 18, 9, 15).isoformat()
 
 
-def tables(seasons):
+def tables(seasons, current=None):
     leagues = ps.leagues.leagues()
+    kept = json.loads(KEPT.read_text(encoding="utf-8")) if KEPT.exists() else {}
     rows = []
     for code, country, level in zip(leagues.code, leagues.country, leagues.level):
         # men's club leagues, and the U20 and U18 World Championships
@@ -135,6 +162,10 @@ def tables(seasons):
             continue
         for y in seasons:
             for phase in ("regular", "playoffs"):
+                slot = f"{code}:{y}:{phase}"
+                if code in SLOW and y != current and slot in kept:
+                    rows += kept[slot]
+                    continue
                 try:
                     df = ps.leagues.skaters(code, y, phase=phase)
                 except Exception as e:
@@ -143,15 +174,241 @@ def tables(seasons):
                 if df.empty:
                     continue
                 bcol = next((c for c in ("birthdate", "birth_date") if c in df), None)
+                start = len(rows)
                 for r in df.to_dict("records"):
+                    site_id = r.get("player_id")
                     rows.append({
                         "code": code, "country": REGION.get(country, country), "season": y, "type": "reg" if phase == "regular" else "po",
                         "name": r.get("player"), "key": name_key(r.get("player")), "born": birth(r.get(bcol)) if bcol else None,
                         "pos": position(r.get("position")), "team": r.get("team") or "",
-                        "nation": nation_of(r.get("birthcntry")) or nation_of(r.get("nationality")), "site_id": r.get("player_id"),
+                        "nation": nation_of(r.get("birthcntry")) or nation_of(r.get("nationality")),
+                        "site_id": None if site_id is None or site_id != site_id else site_id,
                         "gp": int(r.get("gp") or 0), "g": int(r.get("g") or 0), "a": int(r.get("a") or 0), "pts": int(r.get("pts") or 0)})
+                if code in SLOW and current is not None and y != current:
+                    kept[slot] = rows[start:]
                 log.info("%s %d %s: %d", code, y, phase, len(df))
+    KEPT.write_text(json.dumps(dict(sorted(kept.items())), ensure_ascii=False, separators=(",", ":"), default=str),
+                    encoding="utf-8")
     return pd.DataFrame(rows)
+
+
+def name_tokens(n):
+    """'A.J. Gladman' and 'AJ Gladman' -> ['aj', 'gladman']; accents and punctuation dropped."""
+    s = unicodedata.normalize("NFKD", str(n or "")).encode("ascii", "ignore").decode().lower()
+    toks = re.sub(r"[^a-z\s]", " ", s.replace(".", " ").replace("-", " ").replace("'", "")).split()
+    i = 0
+    while i < len(toks) and len(toks[i]) == 1:
+        i += 1
+    return ["".join(toks[:i])] + toks[i:] if i >= 2 else toks
+
+
+# Transliteration variants of the same Russian/Ukrainian name ("Artyom"/"Artem", "Yevgeni"/"Evgeny",
+# "Pustovoy"/"Pustovoi"), folded before names are compared.
+FOLD = [("yo", "e"), ("jo", "e"), ("ye", "e"), ("je", "e"), ("iy", "y"), ("ii", "i"), ("yi", "i"), ("oy", "oi"),
+        ("ay", "ai"), ("ey", "ei"), ("kh", "h"), ("ks", "x"), ("tz", "ts"), ("j", "y")]
+
+
+def fold(word):
+    for a, b in FOLD:
+        word = word.replace(a, b)
+    return re.sub(r"(.)\1", r"\1", word)   # doubled letters: "Kirillov"/"Kirilov"
+
+
+def match_key(name):
+    """A name for matching across sites: tokens folded and sorted ('Pustovoi Andrei' = 'Andrei Pustovoy')."""
+    return " ".join(sorted(fold(t) for t in name_tokens(name)))
+
+
+def one_edit(a, b):
+    """True if a and b differ by one inserted, deleted or changed letter."""
+    if abs(len(a) - len(b)) > 1:
+        return False
+    if len(a) == len(b):
+        return sum(x != y for x, y in zip(a, b)) == 1
+    short, long_ = sorted((a, b), key=len)
+    return any(long_[:i] + long_[i + 1:] == short for i in range(len(long_)))
+
+
+def same_person(a, b):
+    """Two spellings of one player born the same day: same surname and agreeing first names ("Timo"/"Timothy",
+    "Nate"/"Nathan", "Xavier"/"Xavvier"), or the same first name with one surname inside the other ("Noah
+    Gaudet-Barton"/"Noah Barton"). Different first names (twins: "Samuel"/"Simon Skrtic") are two people."""
+    ra, rb = name_tokens(a), name_tokens(b)
+    if len(ra) < 2 or len(rb) < 2:
+        return False
+    ta, tb = [fold(w) for w in ra], [fold(w) for w in rb]
+    if sorted(ta) == sorted(tb):   # the same words in another order ("Neuenschwander Jonah")
+        return True
+    if ta[-1] != tb[-1]:
+        return ta[0] == tb[0] and (set(ta[1:]) <= set(tb[1:]) or set(tb[1:]) <= set(ta[1:]))
+    if frozenset((ra[0], rb[0])) in NICKNAMES:
+        return True
+    fa, fb = ta[0], tb[0]
+    if fa == fb:
+        return True
+    short, long_ = sorted((fa, fb), key=len)
+    return (len(short) >= 3 and long_.startswith(short)) or (len(short) >= 5 and one_edit(fa, fb))
+
+
+def person_keys(t, old_ids=()):
+    """One name key per player: rows born the same day whose names are two spellings of one person (same_person)
+    share a key, the one his card already had (``old_ids``) or else the one he plays under this season."""
+    parent = {}
+
+    def find(x):
+        while parent.setdefault(x, x) != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    names = t.groupby(["born", "key"]).name.first()
+    for born, keys in names.groupby(level=0):
+        items = list(keys.items())
+        for i, ((_, ka), na) in enumerate(items):
+            find((born, ka))
+            for (_, kb), nb in items[i + 1:]:
+                if same_person(na, nb):
+                    parent[find((born, ka))] = find((born, kb))
+    members = {}
+    for node in list(parent):
+        members.setdefault(find(node), []).append(node)
+    current = t.assign(_gp=t.gp.where(t.type == "reg", 0)).groupby(["born", "key"]).agg(season=("season", "max"), gp=("_gp", "sum"))
+    canon = {}
+    for nodes in members.values():
+        def rank(node):
+            born, key = node
+            pid = f"{key.replace(' ', '-')}-{born}"
+            s = current.loc[node] if node in current.index else None
+            return (pid in old_ids, int(s.season) if s is not None else 0, int(s.gp) if s is not None else 0)
+        best = max(nodes, key=rank)[1]
+        for node in nodes:
+            canon[node] = best
+    return [canon.get((b, k), k) for b, k in zip(t.born, t.key)]
+
+
+def team_key(s):
+    return re.sub(r"[^a-z0-9]", "", unicodedata.normalize("NFKD", str(s or "")).encode("ascii", "ignore").decode().lower())
+
+
+def same_team(a, b):
+    """'HC Kometa Brno U20' ~ 'HC KOMETA BRNO', 'CSKA Moskva' ~ 'CSKA': one name inside the other, or a shared
+    word of five letters or more."""
+    ka, kb = team_key(a), team_key(b)
+    if not ka or not kb:
+        return False
+    if ka in kb or kb in ka:
+        return True
+    words = lambda s: {w for w in re.findall(r"[a-z]{5,}", unicodedata.normalize("NFKD", str(s)).encode("ascii", "ignore").decode().lower())}
+    return bool(words(a) & words(b) - {"hockey", "junior", "juniors", "academy", "prep", "club"})
+
+
+def ep_pool(draft_year):
+    """Elite Prospects' Draft Center pool for a draft year (its ranked and unranked prospects, with birth dates,
+    country and current team), or an empty frame if EP has no pool for that year or can't be reached."""
+    try:
+        df = ps.eliteprospects.draft_rankings("consolidated-ranking", unranked=True)
+    except Exception as e:
+        log.info("Elite Prospects pool: %s", str(e)[:80])
+        return pd.DataFrame()
+    if df.empty or "draft_year" not in df or not (df.draft_year == draft_year).any():
+        return pd.DataFrame()
+    df = df[df.draft_year == draft_year].drop_duplicates("player_id").copy()
+    df["key"] = df.player.map(name_key)
+    df["born"] = df.dob.astype(str).str[:10]
+    log.info("Elite Prospects pool for %d: %d players", draft_year, len(df))
+    return df
+
+
+def ep_league(name):
+    """An EP league name as the card's league key: 'OHL' -> 'ohl', 'Czechia U20' -> 'czechia-u20'."""
+    return re.sub(r"\s+", "-", str(name or "").strip().lower())
+
+
+def seed_births(t, pool, season):
+    """Birth dates from EP's pool for rows without one (the Czech and Swiss sites publish none): the row's name is
+    a pool player's and it's at the team EP lists him with this season."""
+    if pool.empty:
+        return t
+    by_key = {k: g for k, g in pool.groupby("key")}
+    born = list(t.born)
+    for i, (b, k, team, y) in enumerate(zip(t.born, t.key, t.team, t.season)):
+        if isinstance(b, str) or k not in by_key or y != season:
+            continue
+        hit = [r for r in by_key[k].itertuples() if same_team(team, r.team)]
+        if len(hit) == 1:
+            born[i] = hit[0].born
+    seeded = sum(isinstance(a, str) and not isinstance(b, str) for a, b in zip(born, t.born))
+    log.info("Birth dates from the Elite Prospects pool: %d rows", seeded)
+    return t.assign(born=born)
+
+
+def ep_league_nations(players, season, cache):
+    """Countries for players still without one, from EP's league table for the league they play in this season
+    (matched by name and team). Found countries are kept in ``cache`` ("ep:<player id>"), so a player is
+    looked up once."""
+    for pid, p in players.items():
+        if not p["nation"] and cache.get(f"ep:{pid}"):
+            p["nation"] = cache[f"ep:{pid}"]
+    blank = {}
+    for pid, p in players.items():
+        if not p["nation"] and p["league"] in EP_LEAGUES:
+            blank.setdefault(p["league"], []).append(pid)
+    for league, pids in blank.items():
+        try:
+            df = ps.eliteprospects.skaters(EP_LEAGUES[league], f"{season}-{season + 1}")
+        except Exception as e:
+            log.info("Elite Prospects %s: %s", league, str(e)[:70])
+            continue
+        if df.empty:
+            continue
+        df = df.assign(key=df.player.map(name_key))
+        found = 0
+        for pid in pids:
+            p = players[pid]
+            rows = df[(df.key == name_key(p["name"])) & df.nation.notna()]
+            if len(rows) > 1:
+                rows = rows[[same_team(p["team"], tm) for tm in rows.team]]
+            if len(rows) == 1:
+                p["nation"] = cache[f"ep:{pid}"] = rows.nation.iloc[0]
+                found += 1
+        log.info("Elite Prospects %s: countries for %d of %d players", league, found, len(pids))
+
+
+def apply_ep_pool(players, ids, pool, draft_year, season, spellings=None):
+    """EP's pool on a class: a matched player missing a country gets EP's, and one whose current team the league
+    sites don't show (no line this season, or no team) gets EP's current team and league. Pool players the sites
+    don't have are added as EP lists them."""
+    if pool.empty:
+        return
+    mine = {}
+    for pid in ids:
+        p = players[pid]
+        mine.setdefault(p["birthDate"], []).append(pid)
+    added = updated = 0
+    for r in pool.itertuples():
+        hits = [pid for pid in mine.get(r.born, [])
+                if any(same_person(nm, r.player) for nm in (spellings or {}).get(pid, set()) | {players[pid]["name"]})]
+        if len(hits) == 1:
+            p = players[hits[0]]
+            if spellings is not None:
+                spellings.setdefault(hits[0], set()).add(r.player)
+            p["ep"] = int(r.player_id) if r.player_id == r.player_id else None
+            if not p["nation"] and isinstance(r.nation, str):
+                p["nation"] = r.nation
+            stale = not any(s["season"] == season and s["type"] == "reg" for s in p["stats"])
+            if (stale or not p["team"]) and isinstance(r.team, str) and r.team:
+                p["team"], p["league"] = r.team, KEYS.get(ep_league(r.league), ep_league(r.league))
+                updated += 1
+        elif not hits:
+            pid = f"{r.key.replace(' ', '-')}-{r.born}"
+            if pid not in players:
+                players[pid] = {"id": pid, "name": r.player, "birthDate": r.born, "position": position(str(r.position).split("/")[0]),
+                                "team": r.team if isinstance(r.team, str) else "", "league": ep_league(r.league),
+                                "nation": r.nation if isinstance(r.nation, str) else "", "draft": None, "class": draft_year,
+                                "stats": [], "ep": int(r.player_id) if r.player_id == r.player_id else None}
+                ids.append(pid)
+                added += 1
+    log.info("%d class: Elite Prospects updated %d teams, added %d players", draft_year, updated, added)
 
 
 def hockeydb_birth(pid, cache):
@@ -268,8 +525,11 @@ def central_scouting(year):
 
 def build(today=None):
     y = season_start(today)
-    t = pd.concat([tables([y - 1, y]), russia_tables([y - 1, y], current=y)], ignore_index=True)
+    old_ids = set(json.loads(OUT.read_text(encoding="utf-8")).get("players", {})) if OUT.exists() else set()
+    t = pd.concat([tables([y - 1, y], current=y), russia_tables([y - 1, y], current=y)], ignore_index=True)
     t = t[t.pos != "G"]
+    pool = ep_pool(y + 1)
+    t = seed_births(t, pool, y)
     classes = {y + 1: "draft year", y + 2: "D-1"}
     # Birth dates for players listed without one: the unique same-name player with one in the same country
     known = t.dropna(subset=["born"]).groupby(["country", "key"]).born.agg(lambda b: b.iloc[0] if b.nunique() == 1 else None)
@@ -283,11 +543,13 @@ def build(today=None):
     # Nor is anyone in college before 17 (on October 1 of the season): a younger "match" is a namesake too
     too_young = pd.Series([b > f"{y - 17}-10-01" for b, y in zip(t.born, t.season)], index=t.index)
     t = t[~((t.code == "ncaa") & (namesake | too_young))]
+    # Two spellings of one player ("Timo"/"Timothy Kazda") become one, so his new team isn't left on a second card
+    t = t.assign(key=person_keys(t, old_ids))
     players, lists = {}, {}
     nations = json.loads(NATIONS.read_text(encoding="utf-8")) if NATIONS.exists() else {}
     games = json.loads(GAMES.read_text(encoding="utf-8")) if GAMES.exists() else {}
     day = (today or dt.date.today()).isoformat()
-    new_games = {}
+    new_games, spellings = {}, {}
     for draft_year, label in classes.items():
         lo, hi = window(draft_year)
         c = t[(t.born >= lo) & (t.born <= hi)]
@@ -319,7 +581,16 @@ def build(today=None):
                 "draft": None, "class": draft_year,
                 "stats": [{"season": int(r.season), "type": r.type, "league": KEYS.get(r.code, r.code), "team": r.team,
                            "gp": r.gp, "g": r.g, "a": r.a, "pts": r.pts} for r in g.itertuples() if r.gp > 0]}
+            spellings[pid] = set(g.name)
             ids.append(pid)
+        if draft_year == y + 1:
+            apply_ep_pool(players, ids, pool, draft_year, y, spellings)
+        # Every spelling a player was found under, for matching rankings ("Timothy" in a list, "Timo" in the OHL's table)
+        in_class = {}
+        for pid in ids:
+            for nm in spellings.get(pid, set()) | {players[pid]["name"]}:
+                if pid not in in_class.setdefault(match_key(nm), []):
+                    in_class[match_key(nm)].append(pid)
         # Central Scouting ranks, matched by name and birth date; ranked players we have no table for are added
         ranks = {}
         for list_name, rows in central_scouting(draft_year).items():
@@ -327,7 +598,8 @@ def build(today=None):
             for r in rows:
                 nm = f"{r.get('firstName', '')} {r.get('lastName', '')}".strip()
                 born = (r.get("birthDate") or "")[:10]
-                pid = f"{name_key(nm).replace(' ', '-')}-{born}"
+                found = [p for p in in_class.get(match_key(nm), []) if players[p]["birthDate"] == born]
+                pid = found[0] if len(found) == 1 else f"{name_key(nm).replace(' ', '-')}-{born}"
                 if pid not in players:
                     players[pid] = {"id": pid, "name": nm, "birthDate": born, "position": position(r.get("positionCode")),
                                     "team": r.get("lastAmateurClub", ""), "league": (r.get("lastAmateurLeague") or "").lower(),
@@ -335,13 +607,10 @@ def build(today=None):
                     ids.append(pid)
                 ranks[list_name][pid] = r.get("finalRank") or r.get("midtermRank")
         # Saved rankings, matched by name within the class (and birth date when the list gives one)
-        in_class = {}
-        for pid in ids:
-            in_class.setdefault(name_key(players[pid]["name"]), []).append(pid)
         for list_name, rows in own_rankings(draft_year).items():
             ranks[list_name], missing = {}, []
             for r in rows:
-                found = [p for p in in_class.get(name_key(r["name"]), []) if not r["born"] or players[p]["birthDate"] == r["born"]]
+                found = [p for p in in_class.get(match_key(r["name"]), []) if not r["born"] or players[p]["birthDate"] == r["born"]]
                 if len(found) == 1:
                     pid = found[0]
                 else:   # not in the tables we read (or two of that name): listed as the ranking has him
@@ -356,6 +625,7 @@ def build(today=None):
                      f" ({', '.join(missing)})" if missing else "")
         lists[str(draft_year)] = {"label": label, "players": sorted(set(ids)), "rankings": ranks}
         log.info("%d class (%s): %d players, rankings: %s", draft_year, label, len(set(ids)), list(ranks) or "none yet")
+    ep_league_nations(players, y, nations)
     NATIONS.write_text(json.dumps(dict(sorted(nations.items())), ensure_ascii=False), encoding="utf-8")
     GAMES.write_text(json.dumps(dict(sorted(new_games.items())), ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     out = {"generated": (today or dt.date.today()).isoformat(), "season": y, "classes": lists, "players": players}

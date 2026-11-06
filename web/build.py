@@ -100,9 +100,9 @@ def model_spec():
         "models": models,
         # League logos for the card, by league key (web/logos/fetch.py and logos.json); a league without one keeps
         # its text label. invert: a dark single-colour mark, inverted on the dark theme so it stays visible.
+        # Leagues without a factor (the U18 leagues, Norway...) have logos too: prospects play there.
         "logos": {key: {"src": f"nhle-logos/{v['file']}", "invert": v["invert_dark"]}
-                  for key, v in json.loads((WEB / "logos" / "logos.json").read_text(encoding="utf-8")).items()
-                  if key in factors},
+                  for key, v in json.loads((WEB / "logos" / "logos.json").read_text(encoding="utf-8")).items()},
     }
 
 

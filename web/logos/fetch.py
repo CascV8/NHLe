@@ -40,6 +40,12 @@ SVG = {
     "mhl": "https://mhl.khl.ru/local/templates/mhl2022/i/2026/JHL_26_27_logo_RU.svg",
     "latvia": "https://www.lhf.lv/media/www/img/logo.svg",                     # Latvian federation, which runs it
     "u21-elite": "https://www.sihf.ch/media/qjtawbjk/rz_sihf_logo_portrait_pos_red_rgb.svg",   # Swiss federation (U20-Elit)
+    # The U18 and U20 leagues that have no logo of their own carry their federation's:
+    "u18-elit": "https://www.sihf.ch/media/qjtawbjk/rz_sihf_logo_portrait_pos_red_rgb.svg",    # Swiss federation
+    "u18-nationell": "https://www.swehockey.se/media/qhwfyrrh/swehockey-logo.svg",           # Swedish federation
+    "u18-regional": "https://www.swehockey.se/media/qhwfyrrh/swehockey-logo.svg",
+    "norway-u18": "https://www.hockey.no/Static/gfx/login_logo.svg",                         # Norwegian federation
+    "norway-u20": "https://www.hockey.no/Static/gfx/login_logo.svg",
     "wjc-20": "https://upload.wikimedia.org/wikipedia/commons/e/e8/IIHF_text_logo_%282025%29.svg",   # IIHF
     "wjc-18": "https://upload.wikimedia.org/wikipedia/commons/e/e8/IIHF_text_logo_%282025%29.svg",
 }
@@ -49,11 +55,14 @@ OFFICIAL_PNG = {
     "czechia2": "https://www.hokej.cz/files/logos/maxa-liga-300.png",                      # Maxa liga
     "czechia-u20": "https://www.hokej.cz/files/logos/novelogo-u20-1-.png",
     "u20-sm-sarja": "https://tulospalvelu.leijonat.fi/images/Logo100x81.png",              # Finnish federation
+    "u18-sm-sarja": "https://tulospalvelu.leijonat.fi/images/Logo100x81.png",
+    "czechia-u18": "https://ceskyhokej.cz/img/favicons/apple-touch-icon.png",              # Czech federation's lion
     "dnl": "https://www.deb-online.de/wp-content/uploads/2023/12/DEB-Logo_110px.png",      # German federation (DEB)
 }
 # White marks would vanish on the light theme: recolour them to the site's ink (and invert them on the dark one).
-RECOLOR = {"shl": (15, 26, 36), "u20-sm-sarja": (15, 26, 36)}
-RECOLOR_SVG = {"u20-nationell": "#0f1a24"}   # the seal is drawn with fill="#FFF"
+RECOLOR = {"shl": (15, 26, 36), "u20-sm-sarja": (15, 26, 36), "u18-sm-sarja": (15, 26, 36)}
+# The Swedish seal and the Norwegian federation's mark are drawn with fill="#FFF"
+RECOLOR_SVG = {k: "#0f1a24" for k in ("u20-nationell", "u18-nationell", "u18-regional", "norway-u18", "norway-u20")}
 INVERT_SVG = {"wjc-20", "wjc-18"}            # the IIHF wordmark is dark navy
 TSDB = "https://r2.thesportsdb.com/images/media/league/badge/"
 PNG = {   # TheSportsDB league ids in comments

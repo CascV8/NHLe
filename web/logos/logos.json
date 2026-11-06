@@ -11,6 +11,10 @@
   "file": "bchl.png",
   "invert_dark": false
  },
+ "czechia-u18": {
+  "file": "czechia-u18.png",
+  "invert_dark": false
+ },
  "czechia-u20": {
   "file": "czechia-u20.png",
   "invert_dark": false
@@ -67,6 +71,14 @@
   "file": "nl.png",
   "invert_dark": true
  },
+ "norway-u18": {
+  "file": "norway-u18.svg",
+  "invert_dark": true
+ },
+ "norway-u20": {
+  "file": "norway-u20.svg",
+  "invert_dark": true
+ },
  "ohl": {
   "file": "ohl.png",
   "invert_dark": false
@@ -90,6 +102,22 @@
  "slovakia2": {
   "file": "slovakia2.png",
   "invert_dark": false
+ },
+ "u18-elit": {
+  "file": "u18-elit.svg",
+  "invert_dark": false
+ },
+ "u18-nationell": {
+  "file": "u18-nationell.svg",
+  "invert_dark": true
+ },
+ "u18-regional": {
+  "file": "u18-regional.svg",
+  "invert_dark": true
+ },
+ "u18-sm-sarja": {
+  "file": "u18-sm-sarja.png",
+  "invert_dark": true
  },
  "u20-nationell": {
   "file": "u20-nationell.svg",

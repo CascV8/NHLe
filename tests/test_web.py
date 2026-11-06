@@ -40,11 +40,12 @@ class TestWebSpec(unittest.TestCase):
                 self.assertIn(key, self.spec["factors"])
                 self.assertEqual(name, name.lower())
 
-    def test_logos_are_for_rated_leagues(self):
+    def test_logos_have_files(self):
         self.assertIn("nhl", self.spec["logos"])
+        self.assertIn("u18-nationell", self.spec["logos"])   # unrated U18/U20 leagues have logos too
         for key, logo in self.spec["logos"].items():
             with self.subTest(league=key):
-                self.assertIn(key, self.spec["factors"])
+                self.assertEqual(key, key.lower())
                 self.assertTrue((ROOT / "web" / "logos" / Path(logo["src"]).name).is_file())
                 self.assertIsInstance(logo["invert"], bool)
 

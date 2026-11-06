@@ -236,8 +236,11 @@ const LEAGUE_NAMES = { nhl: "NHL", ahl: "AHL", echl: "ECHL", ohl: "OHL", whl: "W
   hockeyettan: "HockeyEttan", "u20-nationell": "J20 Nationell", "u18-nationell": "J18 Nationell", liiga: "Liiga",
   mestis: "Mestis", "u20-sm-sarja": "U20 SM-sarja", "u18-sm-sarja": "U18 SM-sarja", khl: "KHL", vhl: "VHL", mhl: "MHL",
   czechia: "Czech Extraliga", czechia2: "Czech Chance Liga", "czechia-u20": "Czech U20", nl: "Swiss NL", sl: "Swiss League",
-  del: "DEL", del2: "DEL2", icehl: "ICEHL", slovakia: "Slovak Extraliga", "wjc-20": "WJC-20", "wjc-18": "WJC-18" };
-const leagueName = raw => LEAGUE_NAMES[leagueKey(SPEC, raw)] || raw;
+  del: "DEL", del2: "DEL2", icehl: "ICEHL", slovakia: "Slovak Extraliga", "wjc-20": "WJC-20", "wjc-18": "WJC-18",
+  // Leagues without a factor, named by the key prospects.json uses
+  "czechia-u18": "Czech U18", "u18-elit": "Swiss U18-Elit", "u21-elite": "Swiss U21-Elit", "u18-regional": "J18 Regional",
+  "norway-u18": "Norway U18 Elite", "norway-u20": "Norway U20 Elite", "czech-u16": "Czech U16" };
+const leagueName = raw => LEAGUE_NAMES[leagueKey(SPEC, raw)] || LEAGUE_NAMES[String(raw || "").trim().toLowerCase()] || raw;
 
 // ── Search ─────────────────────────────────────────────────────────────────────────────────────
 let found = [], sel = -1, timer, seq = 0;
@@ -307,7 +310,7 @@ function mainLeague(s) {
 function leagueTag(s, x) {
   const r = mainLeague(s);
   if (!r) return "";
-  const logo = SPEC.logos?.[r.key];
+  const logo = SPEC.logos?.[r.key] ?? SPEC.logos?.[String(r.league || "").trim().toLowerCase()];
   return logo ? `<span class="lg logo" style="left:${x}%" title="${esc(leagueName(r.league))}"><img src="${esc(logo.src)}"${logo.invert ? ` class="inv"` : ""} alt="${esc(leagueName(r.league))}" loading="lazy"></span>`
     : `<span class="lg" style="left:${x}%">${esc(leagueName(r.league))}</span>`;
 }

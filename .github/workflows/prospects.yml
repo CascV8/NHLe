@@ -1,4 +1,7 @@
-# Daily: the next two draft classes (web/prospects.py), so a prospect's games this season stay current.
+# Daily: the next two draft classes (web/prospects.py), so a prospect's games, team and country stay current:
+# league websites through puckscrape (the KHL/MHL app feed, Czech and Swiss youth leagues, Sweden's U18 series),
+# HockeyDB for the VHL, and Elite Prospects for countries and moved players' current teams.
+# puckscrape comes from its main branch; the repository variable PUCKSCRAPE_REF pins another ref.
 # The monthly job (monthly.yml) rebuilds the stars; both commit to nhle-models, one at a time, and the
 # site picks the new web/prospects.json up on its next update.
 
@@ -29,13 +32,13 @@ jobs:
           python-version: "3.13"
 
       - name: The next two draft classes
-        run: uv run --no-project --with "puckscrape @ git+https://github.com/CascV8/Puckscrape.git" python web/prospects.py
+        run: uv run --no-project --with "puckscrape @ git+https://github.com/CascV8/Puckscrape.git@${{ vars.PUCKSCRAPE_REF || 'main' }}" python web/prospects.py
 
       - name: Commit what changed
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
-          git add web/prospects.json web/prospect_nations.json web/prospect_games.json web/prospect_hockeydb_births.json web/prospect_hockeydb_seasons.json
+          git add web/prospects.json web/prospect_nations.json web/prospect_games.json web/prospect_hockeydb_births.json web/prospect_hockeydb_seasons.json web/prospect_kept_seasons.json
           if git diff --cached --quiet; then echo "Nothing changed."; exit 0; fi
           git commit -m "Daily update: the next two draft classes"
           git pull --rebase origin nhle-models

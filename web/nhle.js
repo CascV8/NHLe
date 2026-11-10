@@ -6,9 +6,9 @@
 // counting as spec.po_weight[group] games. The World Juniors
 // that model uses are not pooled: each is its own term, played + per_pts84 x (NHLe pts/84 there), and
 // for the WJC-20 both move with the player's age at the tournament.
-// A season gets probabilities only if it's one the models were fit on: 10+ regular-season games in
-// rated leagues, and at least half of the season's league games in leagues with a factor
-// (tournaments and short events aside).
+// A season gets probabilities with 10+ regular-season games in rated leagues. The models were fit only on
+// seasons with at least half their league games in leagues with a factor (tournaments and short events aside);
+// a season under that is still rated, on its rated games alone, and flagged partial.
 
 export const SEASONS = [-1, 0, 1, 2, 3, 4, 5];
 export const label = rel => rel === 0 ? "DY" : rel < 0 ? `D${rel}` : `D+${rel}`;
@@ -113,9 +113,10 @@ export function buildCard(spec, player, current) {
       w.pts += r.pts; w.gp += r.gp;
     }
     for (const [k, w] of Object.entries(out.wjc)) out.wjc[k] = w.pts * spec.factors[k] / w.gp * 84;
-    if (regGp < spec.min_gp) out.unrated = `under ${spec.min_gp} games in rated leagues`;
-    else if (ratedGp < spec.min_coverage * leagueGp) out.unrated = "most games in leagues without a factor";
-    if (out.unrated) return out;
+    if (regGp < spec.min_gp) { out.unrated = `under ${spec.min_gp} games in rated leagues`; return out; }
+    // Most of the season in leagues without a factor (prep school, U18 AAA...): the fit left such seasons out, but
+    // with min_gp games in rated leagues the card still rates it, on those games alone, and says so.
+    if (ratedGp < spec.min_coverage * leagueGp) out.partial = `rated on ${ratedGp} of ${leagueGp} games: the rest in leagues without a factor`;
     out.wjcAge = ageOnJan1(player.birthDate, year + 1);
     Object.assign(out, probabilities(spec, group, rel, out.pts84, out.wjc, out.wjcAge));
     // The WJC as NHLe: the league pts/84 that would give the same NHLer odds with no WJC, so the

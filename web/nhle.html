@@ -128,6 +128,7 @@ tr.round td { z-index: 1; }
 .known { position: absolute; top: 4px; left: 0; right: 0; text-align: center; font: 700 .7rem var(--display);
   letter-spacing: .06em; text-transform: uppercase; color: #111; }
 .known.unrated { top: 40%; color: var(--muted); }
+.stack.partial { opacity: .7; }   /* rated on a minority of the season's games (see nhle.js) */
 .labels { border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding-block: 6px; text-align: center; }
 .labels b { display: block; font: 700 1.05rem/1.1 var(--display); letter-spacing: .03em; }
 .labels span { font-size: .74rem; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -329,7 +330,7 @@ function renderCard(p, c) {
     if (s.unrated) return `<div class="stack empty" title="Not rated: ${esc(s.unrated)}"><span class="known unrated">not rated</span></div>`;
     const star = s.star, nh = s.nhler - s.star, bust = 1 - s.nhler;
     const seg = (cls, v, lab) => `<div class="${cls}" style="height:${(v * 100).toFixed(2)}%" title="${lab}: ${pct(v)}">${v >= .06 ? pct(v) : ""}</div>`;
-    return `<div class="stack${s.inProgress ? " live" : ""}">${seg("s", star, "Star")}${seg("n", nh, "NHLer, not a star")}${seg("b", bust, "Bust")}</div>`;
+    return `<div class="stack${s.inProgress ? " live" : ""}${s.partial ? " partial" : ""}"${s.partial ? ` title="${esc(s.partial[0].toUpperCase() + s.partial.slice(1))}"` : ""}>${seg("s", star, "Star")}${seg("n", nh, "NHLer, not a star")}${seg("b", bust, "Bust")}</div>`;
   }).join("");
   const labels = c.seasons.map(s => `<div><b>${s.label}</b><span>${seasonName(s.year)}${s.inProgress ? "*" : ""}</span></div>`).join("");
 
@@ -361,7 +362,7 @@ function renderCard(p, c) {
       <td>${r.used ? (r.pts * r.factor).toFixed(1) : ""}</td>
       ${j === 0 ? `<td rowspan="${s.rows.length}"><b>${s.played ? shown(s).toFixed(1) : "–"}</b>${s.adjPts84 != null
           ? `<br><span class="dim">${s.pts84.toFixed(1)} + ${s.wjcPts84.toFixed(1)} WJC</span>` : ""}</td>
-        <td rowspan="${s.rows.length}">${s.nhler != null ? `${pct(s.star)} / ${pct(s.nhler)}${s.starKnown ? "‡" : s.known ? "†" : ""}` : s.unrated ? `<span class="dim">not rated: ${esc(s.unrated)}</span>` : "–"}</td>` : ""}
+        <td rowspan="${s.rows.length}">${s.nhler != null ? `${pct(s.star)} / ${pct(s.nhler)}${s.starKnown ? "‡" : s.known ? "†" : ""}${s.partial ? `<br><span class="dim">${esc(s.partial)}</span>` : ""}` : s.unrated ? `<span class="dim">not rated: ${esc(s.unrated)}</span>` : "–"}</td>` : ""}
     </tr>`) : []).join("");
 
   return `<div class="card-tools"><button type="button" class="dl-card" data-name="${esc(p.name)}">Download PNG</button></div>
@@ -374,7 +375,7 @@ function renderCard(p, c) {
       <div class="gen">${L ? `<b>${seasonName(L.year)}</b><span>${L.label} · ${pct(L.star)} star · ${pct(L.nhler)} NHLer</span>`
         : `<span>No seasons in a league with an NHLe factor yet</span>`}</div>
     </div>
-    <div class="legend"><span><i style="background:var(--star)"></i>Star (an xG star season)</span>
+    <div class="legend"><span><i style="background:var(--star)"></i>Star</span>
       <span><i style="background:var(--nhler)"></i>NHLer (200+ GP)</span><span><i style="background:var(--bust)"></i>Bust</span></div>
     <div class="cols bars">${bars}</div>
     <div class="cols labels">${labels}</div>
@@ -621,14 +622,23 @@ function setSort(key, dir) {
   renderDraft();
 }
 
+// Star and NHLer sort by the percentage shown (3% is 3%, whatever the decimals); a tie goes to the other one's.
+const shownPct = p => p == null ? null : parseInt(pct(p));
 function renderDraft() {
   const { key, dir } = draftSort;
+  const odds = key === "star" || key === "nhler", other = key === "star" ? "nhler" : "star";
+  const value = (p, k) => odds ? shownPct(sortValue(p, k)) : sortValue(p, k);
   const list = [...draftList].sort((a, b) => {
-    const x = sortValue(a, key), y = sortValue(b, key);
-    if (x === y) return a.overall - b.overall;
+    const x = value(a, key), y = value(b, key);
+    if (x == null && y == null) return a.overall - b.overall;
     if (x == null) return 1;                     // blanks (not loaded, unrated) always last
     if (y == null) return -1;
-    return (x < y ? -1 : 1) * dir;
+    if (x !== y) return (x < y ? -1 : 1) * dir;
+    if (odds) {
+      const u = value(a, other) ?? -1, v = value(b, other) ?? -1;
+      if (u !== v) return (u < v ? -1 : 1) * dir;
+    }
+    return (a.overall ?? Infinity) - (b.overall ?? Infinity);
   });
   const arrow = k => k === key ? ` <span class="arrow">${dir === 1 ? "▲" : "▼"}</span>` : "";
   $("browse-head").innerHTML = "<tr>" + DRAFT_COLS.map(([k, name, cls]) =>

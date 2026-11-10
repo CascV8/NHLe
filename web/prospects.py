@@ -39,7 +39,7 @@ GAMES = WEB / "prospect_games.json"       # {player id: {"league|team": [games, 
 RANKINGS = "https://api-web.nhle.com/v1/draft/rankings/{year}/{category}"
 # Other rankings, saved by hand from wherever they're published (EP's consolidated ranking, TSN's Bob McKenzie,
 # The Athletic's Scott Wheeler, Daily Faceoff...): web/rankings/<draft year>/<any name>.csv, one row per player,
-#     # title: Daily Faceoff (Oct 9, Steven Ellis)      <- the name in the Ranking menu (else the file name)
+#     # title: Steven Ellis                            <- the name in the Ranking menu: the writer (else the file name)
 #     rank,name,born                                     <- born (YYYY-MM-DD) optional: it settles two players
 #     1,Landon DuPont,                                      of the same name
 OWN_RANKINGS = WEB / "rankings"

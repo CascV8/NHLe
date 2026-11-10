@@ -107,7 +107,7 @@ test("an overage pick's seasons count from his first eligible draft, not the yea
   assert.equal(card.drafted, true);
 });
 
-test("a season mostly in unrated leagues isn't rated", () => {
+test("a season mostly in unrated leagues is rated on its rated games, flagged partial", () => {
   const card = buildCard(SPEC, { name: "X", position: "C", birthDate: "2009-03-01", draft: null, stats: [
     { season: 2025, type: "reg", league: "OHL", team: "T", gp: 20, g: 5, a: 5, pts: 10 },
     { season: 2025, type: "reg", league: "U18 AAA", team: "T", gp: 30, g: 30, a: 30, pts: 60 },
@@ -116,7 +116,9 @@ test("a season mostly in unrated leagues isn't rated", () => {
   const d1 = card.seasons[0];
   assert.equal(d1.year, 2025);
   close(d1.pts84, 10 * SPEC.factors.ohl / 20 * 84);
-  assert.equal(d1.unrated, "most games in leagues without a factor");   // 20 of 50 league games; the event doesn't count
+  assert.equal(d1.unrated, undefined);
+  assert.equal(d1.partial, "rated on 20 of 50 games: the rest in leagues without a factor");   // the event doesn't count
+  assert.ok(d1.nhler > 0 && d1.star <= d1.nhler);
 });
 
 test("league names from the NHL and Elite Prospects map to model keys", () => {

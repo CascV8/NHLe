@@ -309,7 +309,8 @@ def usable(g):
         g = g2
 
 
-def main():
+def network_pairs():
+    """Every same-season crossover from all four sources (also used by training/seasons.py)."""
     landing, names = landing_stints()
     tables = table_stints(landing, names)
     hdb = hockeydb_stints(landing, names)
@@ -321,6 +322,11 @@ def main():
     for prefix, targets in (("h", HOCKEYDB_TARGETS), ("e", EP_TARGETS)):
         mine = pairs.player.str[0] == prefix
         pairs = pairs[~mine | pairs.league_a.isin(targets) | pairs.league_b.isin(targets)]
+    return pairs
+
+
+def main():
+    pairs = network_pairs()
     g, per = usable(pool(pairs))
     factors = solve(g)
     wls = solve_wls(g)

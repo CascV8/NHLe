@@ -128,7 +128,6 @@ tr.round td { z-index: 1; }
 .known { position: absolute; top: 4px; left: 0; right: 0; text-align: center; font: 700 .7rem var(--display);
   letter-spacing: .06em; text-transform: uppercase; color: #111; }
 .known.unrated { top: 40%; color: var(--muted); }
-.stack.partial { opacity: .7; }   /* rated on a minority of the season's games (see nhle.js) */
 .labels { border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding-block: 6px; text-align: center; }
 .labels b { display: block; font: 700 1.05rem/1.1 var(--display); letter-spacing: .03em; }
 .labels span { font-size: .74rem; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -330,7 +329,7 @@ function renderCard(p, c) {
     if (s.unrated) return `<div class="stack empty" title="Not rated: ${esc(s.unrated)}"><span class="known unrated">not rated</span></div>`;
     const star = s.star, nh = s.nhler - s.star, bust = 1 - s.nhler;
     const seg = (cls, v, lab) => `<div class="${cls}" style="height:${(v * 100).toFixed(2)}%" title="${lab}: ${pct(v)}">${v >= .06 ? pct(v) : ""}</div>`;
-    return `<div class="stack${s.inProgress ? " live" : ""}${s.partial ? " partial" : ""}"${s.partial ? ` title="${esc(s.partial[0].toUpperCase() + s.partial.slice(1))}"` : ""}>${seg("s", star, "Star")}${seg("n", nh, "NHLer, not a star")}${seg("b", bust, "Bust")}</div>`;
+    return `<div class="stack${s.inProgress ? " live" : ""}"${s.partial ? ` title="${esc(s.partial[0].toUpperCase() + s.partial.slice(1))}"` : ""}>${seg("s", star, "Star")}${seg("n", nh, "NHLer, not a star")}${seg("b", bust, "Bust")}</div>`;
   }).join("");
   const labels = c.seasons.map(s => `<div><b>${s.label}</b><span>${seasonName(s.year)}${s.inProgress ? "*" : ""}</span></div>`).join("");
 

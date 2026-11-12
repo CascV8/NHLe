@@ -357,11 +357,6 @@ function renderCard(p, c) {
       <td class="l${r.used ? "" : " off"}">${esc(leagueName(r.league))}${r.type === "po" ? " <span class='dim'>playoffs</span>" : ""}</td>
       <td class="l${r.used ? "" : " off"}">${esc(r.team)}</td>
       <td>${r.gp}</td><td>${r.pts}</td>
-      <td class="${r.used ? "" : "off"}">${r.used ? r.factor.toFixed(3) : r.why || "no games"}</td>
-      <td>${r.used ? (r.pts * r.factor).toFixed(1) : ""}</td>
-      ${j === 0 ? `<td rowspan="${s.rows.length}"><b>${s.played ? shown(s).toFixed(1) : "–"}</b>${s.adjPts84 != null
-          ? `<br><span class="dim">${s.pts84.toFixed(1)} + ${s.wjcPts84.toFixed(1)} WJC</span>` : ""}</td>
-        <td rowspan="${s.rows.length}">${s.nhler != null ? `${pct(s.star)} / ${pct(s.nhler)}${s.starKnown ? "‡" : s.known ? "†" : ""}${s.partial ? `<br><span class="dim">${esc(s.partial)}</span>` : ""}` : s.unrated ? `<span class="dim">not rated: ${esc(s.unrated)}</span>` : "–"}</td>` : ""}
     </tr>`) : []).join("");
 
   return `<div class="card-tools"><button type="button" class="dl-card" data-name="${esc(p.name)}">Download PNG</button></div>
@@ -380,12 +375,11 @@ function renderCard(p, c) {
     <div class="cols labels">${labels}</div>
     <div class="line">${line}</div>
     <div class="detail"><div class="table" style="max-height:none"><table>
-      <thead><tr><th class="l">Season</th><th class="l">League</th><th class="l">Team</th><th>GP</th><th>PTS</th>
-        <th>Factor</th><th>NHLe pts</th><th>Pts/84</th><th>Star / NHLer</th></tr></thead>
-      <tbody>${detail || `<tr><td class="l msg" colspan="9">No seasons between ${seasonName(c.draftYear - 2)} and ${seasonName(c.draftYear + 4)}.</td></tr>`}</tbody>
+      <thead><tr><th class="l">Season</th><th class="l">League</th><th class="l">Team</th><th>GP</th><th>PTS</th></tr></thead>
+      <tbody>${detail || `<tr><td class="l msg" colspan="5">No seasons between ${seasonName(c.draftYear - 2)} and ${seasonName(c.draftYear + 4)}.</td></tr>`}</tbody>
     </table></div></div>
   </article>
-  <p class="dim" style="font-size:.84rem;margin:0">${played.some(s => s.inProgress) ? "* Season in progress: a few games swing pts/84 a lot. " : ""}${played.some(s => s.known && !s.starKnown) ? "† Already 200 NHL games, so NHLer is 100%. " : ""}${played.some(s => s.starKnown) ? "‡ Already confirmed a star by xG, so star is 100%. " : ""}Source: ${p.src === "ep" ? "Elite Prospects" : "NHL"}.</p>`;
+  <p class="dim" style="font-size:.84rem;margin:0">${played.some(s => s.inProgress) ? "* Season in progress: a few games swing the odds a lot. " : ""}Source: ${p.src === "ep" ? "Elite Prospects" : "NHL"}.</p>`;
 }
 
 // The page's Google web fonts as inline CSS for html-to-image, which can't read the cross-origin stylesheet
